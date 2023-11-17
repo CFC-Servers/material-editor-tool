@@ -41,13 +41,11 @@ function advMat_Table:GetMaterialPathId( data )
 	local dataValid = self:ValidateAdvmatData( data )
 
 	local texture = string.Trim( dataValid.texture )
-	local uid = texture .. "+" .. dataValid.ScaleX .. "+" .. dataValid.ScaleY .. "+" .. dataValid.OffsetX .. "+" .. data.OffsetY
+	local uid = texture .. "+" .. dataValid.ScaleX .. "+" .. dataValid.ScaleY .. "+" .. dataValid.OffsetX .. "+" .. data.OffsetY .. "+" .. dataValid.ROffset
 
 	if dataValid.UseNoise then
 		uid = uid .. dataValid.NoiseTexture .. "+" .. dataValid.NoiseScaleX .. "+" .. dataValid.NoiseScaleY .. "+" .. dataValid.NoiseOffsetX .. "+" .. dataValid.NoiseOffsetY
 	end
-
-	uid = uid .. "+" .. dataValid.ROffset
 
 	uid = uid:gsub( "%.", "-" )
 
