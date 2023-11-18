@@ -163,9 +163,9 @@ if CLIENT then
 		requestQueue = {}
 	end
 
-	hook.Add( "EntityNetworkedVarChanged", "AdvMatSync", function( ent, name, _, new )
+	hook.Add( "EntityNetworkedVarChanged", "AdvMatSync", function( ent, name, old, new )
 		if name ~= "MaterialData" then return end
-		if ent.MaterialData == new then return end
+		if old == new then return end
 
 		table.insert( requestQueue, ent )
 
