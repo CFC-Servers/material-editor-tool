@@ -1,182 +1,211 @@
-if (SERVER) then
-	util.AddNetworkString("Materialize");
-	util.AddNetworkString("AdvMatInit");
-end;
+if SERVER then
+	util.AddNetworkString( "Materialize" )
+	util.AddNetworkString( "AdvMatInit" )
+end
 
-materials = materials or {};
-materials.stored = materials.stored or {};
+advMat_Table = advMat_Table or {}
 
-function materials:GetStored()
-	return self.stored;
-end;
+-- cache of built "UID"s so mats with the same stuff don't build twice 
+advMat_Table.stored = advMat_Table.stored or {}
 
-function materials:Set(ent, texture, data, filter)
-	if (SERVER) then
-		net.Start("Materialize");
-		net.WriteEntity(ent);
-		net.WriteString(texture);
-		net.WriteTable(data);
+function advMat_Table:ResetAdvMaterial( ent )
+	if ent.MaterialData then
+		ent.MaterialData = nil
 
-		if (filter) then
-			net.Send(filter);
+	end
+
+	ent:SetMaterial( "" )
+
+end
+
+function advMat_Table:ValidateAdvmatData( data )
+	local dataValid = {
+		texture = data.texture:lower() or "",
+		ScaleX = data.ScaleX or 1,
+		ScaleY = data.ScaleY or 1,
+		OffsetX = data.OffsetX or 0,
+		OffsetY = data.OffsetY or 0,
+		ROffset = data.ROffset or 0,
+		UseNoise = data.UseNoise or false,
+		NoiseTexture = data.NoiseTexture or "detail/noise_detail_01",
+		NoiseScaleX = data.NoiseScaleX or 1,
+		NoiseScaleY = data.NoiseScaleY or 1,
+		NoiseOffsetX = data.NoiseOffsetX or 0,
+		NoiseOffsetY = data.NoiseOffsetY or 0,
+	}
+	return dataValid
+
+end
+
+function advMat_Table:GetMaterialPathId( data )
+	local dataValid = self:ValidateAdvmatData( data )
+
+	local texture = string.Trim( dataValid.texture )
+	local uid = texture .. "+" .. dataValid.ScaleX .. "+" .. dataValid.ScaleY .. "+" .. dataValid.OffsetX .. "+" .. data.OffsetY .. "+" .. dataValid.ROffset
+
+	if dataValid.UseNoise then
+		uid = uid .. dataValid.NoiseTexture .. "+" .. dataValid.NoiseScaleX .. "+" .. dataValid.NoiseScaleY .. "+" .. dataValid.NoiseOffsetX .. "+" .. dataValid.NoiseOffsetY
+	end
+
+	uid = uid:gsub( "%.", "-" )
+
+	return uid, dataValid
+end
+
+function advMat_Table:GetStored()
+	return self.stored
+end
+
+function advMat_Table:Set( ent, texture, data, filter )
+	if not IsValid( ent ) then return end
+	data.texture = texture
+
+	if SERVER then
+		net.Start( "Materialize" )
+		net.WriteEntity( ent )
+		net.WriteString( data.texture )
+		net.WriteTable( data )
+
+		if filter then
+			net.Send( filter )
 		else
-			net.Broadcast();
-		end;
+			net.Broadcast()
+		end
 
-		if (texture == nil or texture == "") then
-			if (IsValid(ent)) then
-				ent:SetMaterial("");
-			end;
+		self:ResetAdvMaterial( ent )
 
-			return;
-		end;
+		if data.texture == nil or data.texture == "" then
+			return
 
-		ent:SetMaterial("");
+		end
 
-		ent.MaterialData = {
-			texture = texture,
-			ScaleX = data.ScaleX or 1,
-			ScaleY = data.ScaleY or 1,
-			OffsetX = data.OffsetX or 0,
-			OffsetY = data.OffsetY or 0,
-			UseNoise = data.UseNoise or false,
-			NoiseTexture = data.NoiseTexture or "detail/noise_detail_01",
-			NoiseScaleX = data.NoiseScaleX or 1,
-			NoiseScaleY = data.NoiseScaleY or 1,
-			NoiseOffsetX = data.NoiseOffsetX or 0,
-			NoiseOffsetY = data.NoiseOffsetY or 0,
-		};
+		local uid, dataValid = self:GetMaterialPathId( data )
+		ent.MaterialData = dataValid
 
-		texture = texture:lower();
-		texture = string.Trim(texture);
-		local uid = texture .. "+" .. (data.ScaleX or 1) .. "+" .. (data.ScaleY or 1) .. "+" .. (data.OffsetX or 0) .. "+" .. (data.OffsetY or 0);
+		ent:SetMaterial( "!" .. uid )
 
-		if (data.UseNoise) then
-			uid = uid .. (data.NoiseTexture or "detail/noise_detail_01") .. "+" .. (data.NoiseScaleX or 1) .. "+" .. (data.NoiseScaleY or 1) .. "+" .. (data.NoiseOffsetX or 0) .. "+" .. (data.NoiseOffsetY or 0);
-		end;
-
-		uid = uid:gsub("%.", "-");
-
-		ent:SetMaterial("!" .. uid);
-
-		duplicator.StoreEntityModifier(ent, "MaterialData", ent.MaterialData);
+		duplicator.StoreEntityModifier( ent, "MaterialData", ent.MaterialData )
 	else
-		if (texture == nil or texture == "") then
-			if (IsValid(ent)) then
-				ent:SetMaterial("");
-			end;
+		-- wipe old material
+		self:ResetAdvMaterial( ent )
 
-			return;
-		end;
+		data = data or {}
 
-		ent:SetMaterial("");
+		if data.texture == nil or data.texture == "" then
+			return
+		end
 
-		data = data or {};
-		data.texture = texture;
-		data.UseNoise = data.UseNoise or false;
-		data.ScaleX = data.ScaleX or 1;
-		data.ScaleY = data.ScaleY or 1;
-		data.OffsetX = data.OffsetX or 0;
-		data.OffsetY = data.OffsetY or 0;
-		data.NoiseTexture = data.NoiseTexture or "detail/noise_detail_01";
-		data.NoiseScaleX = data.NoiseScaleX or 1;
-		data.NoiseScaleY = data.NoiseScaleY or 1;
-		data.NoiseOffsetX = data.NoiseOffsetX or 0;
-		data.NoiseOffsetY = data.NoiseOffsetY or 0;
+		local uid, dataV = self:GetMaterialPathId( data )
 
-		texture = texture:lower();
-		texture = string.Trim(texture);
-
-		local tempMat = Material(texture);
-
-		if (string.find(texture, "../", 1, true) or string.find(texture, "pp/", 1, true)) then
-			return;
-		end;
-
-		local uid = texture .. "+" .. data.ScaleX .. "+" .. data.ScaleY .. "+" .. data.OffsetX .. "+" .. data.OffsetY;
-
-		if (data.UseNoise) then
-			uid = uid .. (data.NoiseTexture or "detail/noise_detail_01") .. "+" .. (data.NoiseScaleX or 1) .. "+" .. (data.NoiseScaleY or 1) .. "+" .. (data.NoiseOffsetX or 0) .. "+" .. (data.NoiseOffsetY or 0);
-		end;
-
-		uid = uid:gsub("%.", "-");
-
-		if (!self.stored[uid]) then
+		if not self.stored[uid] then
+			local tempMat = Material( dataV.texture )
 
 			local matTable = {
 				["$basetexture"] = tempMat:GetName(),
-				["$basetexturetransform"] = "center .5 .5 scale " .. (1 / data.ScaleX) .. " " .. (1 / data.ScaleY) .. " rotate 0 translate " .. data.OffsetX .. " " .. data.OffsetY,
+				["$basetexturetransform"] = "center .5 .5 scale " .. ( 1 / dataV.ScaleX ) .. " " .. ( 1 / dataV.ScaleY ) .. " rotate " .. dataV.ROffset .. " translate " .. dataV.OffsetX .. " " .. dataV.OffsetY,
 				["$vertexalpha"] = 0,
 				["$vertexcolor"] = 1
-			};
+			}
 
-			for k, v in pairs(data) do
-				if (k:sub(1, 1) == "$") then
-					matTable[k] = v;
-				end;
-			end;
+			local iTexture = tempMat:GetTexture( "$basetexture" )
+			if not iTexture then return end
 
-			if (data.UseNoise) then
-				matTable["$detail"] = data.NoiseTexture;
-			end;
+			for index, currData in pairs( dataV ) do
+				if ( index:sub( 1, 1 ) == "$" ) then
+					matTable[k] = currData
+				end
+			end
 
-			if (file.Exists("materials/" .. texture .. "_normal.vtf", "GAME")) then
-				matTable["$bumpmap"] = texture .. "_normal";
-				matTable["$bumptransform"] = "center .5 .5 scale " .. (1 / data.ScaleX) .. " " .. (1 / data.ScaleY) .. " rotate 0 translate " .. data.OffsetX .. " " .. data.OffsetY;
-			end;
+			if ( dataV.UseNoise ) then
+				matTable["$detail"] = dataV.NoiseTexture
+			end
 
-			local matrix = Matrix();
-			matrix:Scale(Vector(1 / data.ScaleX, 1 / data.ScaleY, 1));
-			matrix:Translate(Vector(data.OffsetX, data.OffsetY, 0));
+			if ( file.Exists( "materials/" .. texture .. "_normal.vtf", "GAME" ) ) then
+				matTable["$bumpmap"] = texture .. "_normal"
+				matTable["$bumptransform"] = "center .5 .5 scale " .. ( 1 / dataV.ScaleX ) .. " " .. ( 1 / dataV.ScaleY ) .. " rotate " .. dataV.ROffset .. " translate " .. dataV.OffsetX .. " " .. dataV.OffsetY
+			end
 
-			local noiseMatrix = Matrix();
-			noiseMatrix:Scale(Vector(1 / data.NoiseScaleX, 1 / data.NoiseScaleY, 1));
-			noiseMatrix:Translate(Vector(data.NoiseOffsetX, data.NoiseOffsetY, 0));
+			local matrix = Matrix()
+			matrix:Scale( Vector( 1 / dataV.ScaleX, 1 / dataV.ScaleY, 1 ) )
+			matrix:Translate( Vector( dataV.OffsetX, dataV.OffsetY, 0 ) )
+			matrix:Rotate( Angle( 0, dataV.ROffset, 0 ) )
 
-			self.stored[uid] = CreateMaterial(uid, "VertexLitGeneric", matTable);
-			self.stored[uid]:SetTexture("$basetexture", tempMat:GetTexture("$basetexture"));
-			self.stored[uid]:SetMatrix("$basetexturetransform", matrix);
-			self.stored[uid]:SetMatrix("$detailtexturetransform", noiseMatrix);
-		end;
+			local noiseMatrix = Matrix()
+			noiseMatrix:Scale( Vector( 1 / dataV.NoiseScaleX, 1 / dataV.NoiseScaleY, 1 ) )
+			noiseMatrix:Translate( Vector( dataV.NoiseOffsetX, dataV.NoiseOffsetY, 0 ) )
+			noiseMatrix:Rotate( Angle( 0, dataV.ROffset, 0 ) )
 
-		ent.MaterialData = {
-			texture = texture,
-			ScaleX = data.ScaleX or 1,
-			ScaleY = data.ScaleY or 1,
-			OffsetX = data.OffsetX or 0,
-			OffsetY = data.OffsetY or 0,
-			UseNoise = data.UseNoise or false,
-			NoiseTexture = data.NoiseTexture or "detail/noise_detail_01",
-			NoiseScaleX = data.NoiseScaleX or 1,
-			NoiseScaleY = data.NoiseScaleY or 1,
-			NoiseOffsetX = data.NoiseOffsetX or 0,
-			NoiseOffsetY = data.NoiseOffsetY or 0,
-		};
+			self.stored[uid] = CreateMaterial( uid, "VertexLitGeneric", matTable )
+			self.stored[uid]:SetTexture( "$basetexture", iTexture )
+			self.stored[uid]:SetMatrix( "$basetexturetransform", matrix )
+			self.stored[uid]:SetMatrix( "$detailtexturetransform", noiseMatrix )
+		end
 
-		ent:SetMaterial("!" .. uid);
-	end;
-end;
+		ent.MaterialData = dataV
 
-if (CLIENT) then
-	net.Receive("Materialize", function()
-		local ent = net.ReadEntity();
-		local texture = net.ReadString();
-		local data = net.ReadTable();
+		ent:SetMaterial( "!" .. uid )
+	end
+end
 
-		if (IsValid(ent)) then
-			materials:Set(ent, texture, data);
-		end;
-	end);
+if CLIENT then
+	net.Receive( "Materialize", function()
+		local ent = net.ReadEntity()
+		local texture = net.ReadString()
+		local data = net.ReadTable()
+
+		if IsValid( ent ) then
+			advMat_Table:Set( ent, texture, data )
+
+		end
+	end )
 else
-	timer.Create("AdvMatSync", 30, 0, function()
-		for k, v in pairs(ents.GetAll()) do
-			if (IsValid(v) and v.MaterialData) then
-				materials:Set(v, v.MaterialData.texture, v.MaterialData);
-			end;
-		end;
-	end);
-end;
+	local function SyncAdvmats()
+		local progress = 0
+		for _, ent in pairs( ents.GetAll() ) do
+			if IsValid( ent ) and ent.MaterialData then
+				coroutine.yield( progress )
+				progress = progress + 1
+				advMat_Table:Set( ent, ent.MaterialData.texture, ent.MaterialData )
 
-duplicator.RegisterEntityModifier("MaterialData", function(player, entity, data)
-	materials:Set(entity, data.texture, data);
-end);
+			end
+		end
+	end
+
+	local advmatSync_coroutine
+	local maxSendsPerTick = 25
+	local maxDone = 0
+
+	local function MaintainSyncingCoroutine()
+		maxDone = maxDone + maxSendsPerTick
+		if not advmatSync_coroutine then
+			advmatSync_coroutine = coroutine.create( SyncAdvmats )
+
+		elseif advmatSync_coroutine then
+			local status = coroutine.status( advmatSync_coroutine )
+			if status == "dead" then
+				advmatSync_coroutine = nil
+				hook.Remove( "Think", "advmat_maintainsyncing_coroutine" )
+
+			else
+				local noErrs = true
+				local progress = 0
+				while noErrs and progress and progress <= maxDone do
+					noErrs, progress = coroutine.resume( advmatSync_coroutine )
+
+				end
+			end
+		end
+	end
+
+
+	timer.Create( "AdvMatSync", 30, 0, function()
+		maxDone = 0
+		hook.Add( "Think", "advmat_maintainsyncing_coroutine", MaintainSyncingCoroutine )
+
+	end )
+end
+
+duplicator.RegisterEntityModifier( "MaterialData", function( _, entity, data )
+	advMat_Table:Set( entity, data.texture, data )
+
+end )
