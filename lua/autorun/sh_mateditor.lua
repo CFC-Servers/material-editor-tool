@@ -107,6 +107,9 @@ function advMat_Table:Set( ent, texture, data, filter )
 				["$vertexcolor"] = 1
 			}
 
+			local iTexture = tempMat:GetTexture( "$basetexture" )
+			if not iTexture then return end
+
 			for index, currData in pairs( dataV ) do
 				if ( index:sub( 1, 1 ) == "$" ) then
 					matTable[k] = currData
@@ -133,7 +136,7 @@ function advMat_Table:Set( ent, texture, data, filter )
 			noiseMatrix:Rotate( Angle( 0, dataV.ROffset, 0 ) )
 
 			self.stored[uid] = CreateMaterial( uid, "VertexLitGeneric", matTable )
-			self.stored[uid]:SetTexture( "$basetexture", tempMat:GetTexture( "$basetexture" ) )
+			self.stored[uid]:SetTexture( "$basetexture", iTexture )
 			self.stored[uid]:SetMatrix( "$basetexturetransform", matrix )
 			self.stored[uid]:SetMatrix( "$detailtexturetransform", noiseMatrix )
 		end

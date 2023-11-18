@@ -73,6 +73,7 @@ function TOOL:LeftClick( trace )
 	return true
 end
 
+-- copy mats
 function TOOL:RightClick( trace )
 	if trace.Entity:IsPlayer() then return false end
 	if CLIENT then return true end
