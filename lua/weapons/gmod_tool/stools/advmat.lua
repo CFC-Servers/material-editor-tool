@@ -166,7 +166,7 @@ function TOOL:Think()
 				["$detailblendmode"] = 0,
 			}
 
-			previewMatTable["$detail"] = self.DetailTranslation[ "noise" ]
+			previewMatTable["$detail"] = self.DetailTranslation[ "concrete" ]
 			PreviewMatNoise.concrete = CreateMaterial( "AdvMatPreviewNoiseConcrete", "VertexLitGeneric", previewMatTable )
 
 			previewMatTable["$detail"] = self.DetailTranslation[ "plaster" ]
