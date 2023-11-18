@@ -167,8 +167,6 @@ if CLIENT then
 		if name ~= "MaterialData" then return end
 		if ent.MaterialData == new then return end
 
-		print( "AdvMatSync", ent, name, new )
-
 		table.insert( requestQueue, ent )
 
 		if #requestQueue > 200 then
