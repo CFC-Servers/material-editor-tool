@@ -61,6 +61,7 @@ function advMat_Table:Set( ent, texture, data, filter )
 	data.texture = texture
 
 	if SERVER then
+		local entsPos = ent:GetPos()
 		net.Start( "Materialize" )
 		net.WriteEntity( ent )
 		net.WriteString( data.texture )
@@ -69,7 +70,13 @@ function advMat_Table:Set( ent, texture, data, filter )
 		if filter then
 			net.Send( filter )
 		else
-			net.Broadcast()
+			if not util.IsInWorld( entsPos ) then
+				net.Broadcast()
+
+			else
+				net.SendPVS( entsPos )
+
+			end
 		end
 
 		self:ResetAdvMaterial( ent )
@@ -172,8 +179,8 @@ else
 	end
 
 	local advmatSync_coroutine
-	local maxSendsPerTick = 25
-	local maxDone = 0
+	local maxSendsPerTick = 25 -- config
+	local maxDone = 0 -- dynamic, used to determine when to break the below while loop 
 
 	local function MaintainSyncingCoroutine()
 		maxDone = maxDone + maxSendsPerTick
