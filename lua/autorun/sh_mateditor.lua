@@ -169,7 +169,7 @@ if CLIENT then
 
 		table.insert( requestQueue, ent )
 
-		if #requestQueue > 200 then
+		if #requestQueue >= 200 then
 			sendRequestQueue()
 			return
 		end
