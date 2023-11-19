@@ -1,6 +1,7 @@
 if SERVER then
 	util.AddNetworkString( "Materialize" )
 	util.AddNetworkString( "AdvMatInit" )
+	util.AddNetworkString( "AdvMatSync" )
 end
 
 advMat_Table = advMat_Table or {}
@@ -11,11 +12,13 @@ advMat_Table.stored = advMat_Table.stored or {}
 function advMat_Table:ResetAdvMaterial( ent )
 	if ent.MaterialData then
 		ent.MaterialData = nil
+	end
 
+	if SERVER then
+		duplicator.ClearEntityModifier( ent, "material" )
 	end
 
 	ent:SetMaterial( "" )
-
 end
 
 function advMat_Table:ValidateAdvmatData( data )
@@ -56,35 +59,28 @@ function advMat_Table:GetStored()
 	return self.stored
 end
 
-function advMat_Table:Set( ent, texture, data, filter )
+function advMat_Table:Set( ent, texture, data )
 	if not IsValid( ent ) then return end
 	data.texture = texture
 
 	if SERVER then
-		net.Start( "Materialize" )
-		net.WriteEntity( ent )
-		net.WriteString( data.texture )
-		net.WriteTable( data )
-
-		if filter then
-			net.Send( filter )
-		else
-			net.Broadcast()
-		end
+		ent:SetNW2String( "AdvMaterialCRC", util.CRC( tostring( {} ) ) )
 
 		self:ResetAdvMaterial( ent )
 
 		if data.texture == nil or data.texture == "" then
 			return
-
 		end
 
 		local uid, dataValid = self:GetMaterialPathId( data )
 		ent.MaterialData = dataValid
-
-		ent:SetMaterial( "!" .. uid )
-
 		duplicator.StoreEntityModifier( ent, "MaterialData", ent.MaterialData )
+		duplicator.ClearEntityModifier( ent, "material" )
+
+		timer.Simple( 0, function() -- fix for submaterial tool conflict
+			if not IsValid( ent ) then return end
+			ent:SetMaterial( "!" .. uid )
+		end )
 	else
 		-- wipe old material
 		self:ResetAdvMaterial( ent )
@@ -155,57 +151,100 @@ if CLIENT then
 
 		if IsValid( ent ) then
 			advMat_Table:Set( ent, texture, data )
-
 		end
 	end )
+
+	local requestQueue = {}
+
+	local function sendRequestQueue()
+		net.Start( "AdvMatSync" )
+		for _, netEnt in ipairs( requestQueue ) do
+			net.WriteBit( true )
+			net.WriteEntity( netEnt )
+		end
+		net.SendToServer()
+
+		requestQueue = {}
+	end
+
+	hook.Add( "EntityNetworkedVarChanged", "AdvMatSync", function( ent, name, old, new )
+		if name ~= "AdvMaterialCRC" then return end
+		if old == new then return end
+
+		table.insert( requestQueue, ent )
+
+		if #requestQueue >= 200 then
+			sendRequestQueue()
+			return
+		end
+
+		timer.Create( "AdvMatSyncTimer", 0.05, 1, sendRequestQueue )
+	end )
 else
-	local function SyncAdvmats()
-		local progress = 0
-		for _, ent in pairs( ents.GetAll() ) do
-			if IsValid( ent ) and ent.MaterialData then
-				coroutine.yield( progress )
-				progress = progress + 1
-				advMat_Table:Set( ent, ent.MaterialData.texture, ent.MaterialData )
+	function advMat_Table:Sync( ent, ply )
+		local data = ent.MaterialData
+		if not data then return end
 
-			end
-		end
+		net.Start( "Materialize" )
+		net.WriteEntity( ent )
+		net.WriteString( data.texture )
+		net.WriteTable( data )
+		net.Send( ply )
 	end
 
-	local advmatSync_coroutine
-	local maxSendsPerTick = 25
-	local maxDone = 0
+	local syncTable = {}
+	local sendCount = 0
 
-	local function MaintainSyncingCoroutine()
-		maxDone = maxDone + maxSendsPerTick
-		if not advmatSync_coroutine then
-			advmatSync_coroutine = coroutine.create( SyncAdvmats )
+	local function runSync()
+		if table.IsEmpty( syncTable ) then
+			timer.Remove( "AdvMatSyncTimer" )
+			return
+		end
 
-		elseif advmatSync_coroutine then
-			local status = coroutine.status( advmatSync_coroutine )
-			if status == "dead" then
-				advmatSync_coroutine = nil
-				hook.Remove( "Think", "advmat_maintainsyncing_coroutine" )
+		for ply, entTable in pairs( syncTable ) do
+			if IsValid( ply ) then
+				for i, ent in pairs( entTable ) do
+					if IsValid( ent ) and ent.MaterialData then
+						advMat_Table:Sync( ent, ply )
+						sendCount = sendCount + 1
+					end
 
-			else
-				local noErrs = true
-				local progress = 0
-				while noErrs and progress and progress <= maxDone do
-					noErrs, progress = coroutine.resume( advmatSync_coroutine )
+					if sendCount >= 200 then
+						sendCount = 0
+						return
+					end
 
+					entTable[i] = nil
 				end
+			else
+				syncTable[ply] = nil
 			end
 		end
 	end
 
+	local function createSyncTimer()
+		timer.Create( "AdvMatSyncTimer", 0.1, 0, runSync )
+	end
 
-	timer.Create( "AdvMatSync", 30, 0, function()
-		maxDone = 0
-		hook.Add( "Think", "advmat_maintainsyncing_coroutine", MaintainSyncingCoroutine )
+	net.Receive( "AdvMatSync", function( _, ply )
+		local requestQueue = {}
 
+		for _ = 1, 200 do
+			if not net.ReadBit() then break end
+			table.insert( requestQueue, net.ReadEntity() )
+		end
+
+		for _, ent in pairs( requestQueue ) do
+			if IsValid( ent ) and ent.MaterialData then
+				syncTable[ply] = syncTable[ply] or {}
+				table.insert( syncTable[ply], ent )
+
+				createSyncTimer()
+			end
+		end
 	end )
 end
 
 duplicator.RegisterEntityModifier( "MaterialData", function( _, entity, data )
 	advMat_Table:Set( entity, data.texture, data )
-
 end )
