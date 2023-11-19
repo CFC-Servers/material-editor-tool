@@ -73,10 +73,12 @@ function advMat_Table:Set( ent, texture, data )
 
 		local uid, dataValid = self:GetMaterialPathId( data )
 		ent.MaterialData = dataValid
-
-		ent:SetMaterial( "!" .. uid )
-
 		duplicator.StoreEntityModifier( ent, "MaterialData", ent.MaterialData )
+
+		timer.Simple( 0, function() -- fix for submaterial tool conflict
+			if not IsValid( ent ) then return end
+			ent:SetMaterial( "!" .. uid )
+		end )
 	else
 		-- wipe old material
 		self:ResetAdvMaterial( ent )
