@@ -64,7 +64,7 @@ function advMat_Table:Set( ent, texture, data )
 	data.texture = texture
 
 	if SERVER then
-		ent:SetNW2String( "MaterialData", util.CRC( tostring( {} ) ) )
+		ent:SetNW2String( "AdvMaterialCRC", util.CRC( tostring( {} ) ) )
 
 		self:ResetAdvMaterial( ent )
 
@@ -168,7 +168,7 @@ if CLIENT then
 	end
 
 	hook.Add( "EntityNetworkedVarChanged", "AdvMatSync", function( ent, name, old, new )
-		if name ~= "MaterialData" then return end
+		if name ~= "AdvMaterialCRC" then return end
 		if old == new then return end
 
 		table.insert( requestQueue, ent )
