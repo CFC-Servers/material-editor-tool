@@ -12,11 +12,13 @@ advMat_Table.stored = advMat_Table.stored or {}
 function advMat_Table:ResetAdvMaterial( ent )
 	if ent.MaterialData then
 		ent.MaterialData = nil
+	end
 
+	if SERVER then
+		duplicator.ClearEntityModifier( ent, "material" )
 	end
 
 	ent:SetMaterial( "" )
-
 end
 
 function advMat_Table:ValidateAdvmatData( data )
@@ -68,12 +70,12 @@ function advMat_Table:Set( ent, texture, data )
 
 		if data.texture == nil or data.texture == "" then
 			return
-
 		end
 
 		local uid, dataValid = self:GetMaterialPathId( data )
 		ent.MaterialData = dataValid
 		duplicator.StoreEntityModifier( ent, "MaterialData", ent.MaterialData )
+		duplicator.ClearEntityModifier( ent, "material" )
 
 		timer.Simple( 0, function() -- fix for submaterial tool conflict
 			if not IsValid( ent ) then return end
