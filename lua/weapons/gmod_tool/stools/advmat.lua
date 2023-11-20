@@ -214,7 +214,10 @@ function TOOL:Think()
 		matrix:Rotate( Angle( 0, roffset, 0 ) )
 
 		if mat:GetString( "$basetexture" ) ~= texture then
-			mat:SetTexture( "$basetexture", Material( texture ):GetTexture( "$basetexture" ) )
+			local iMaterial = Material( texture ):GetTexture( "$basetexture" )
+			if iMaterial then
+				mat:SetTexture( "$basetexture", iMaterial )
+			end
 		end
 
 		mat:SetMatrix( "$basetexturetransform", matrix )

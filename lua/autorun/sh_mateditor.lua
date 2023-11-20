@@ -28,7 +28,7 @@ function advMat_Table:ValidateAdvmatData( data )
 		ScaleY = data.ScaleY or 1,
 		OffsetX = data.OffsetX or 0,
 		OffsetY = data.OffsetY or 0,
-		ROffset = data.ROffset or 0,
+		ROffset = data.ROffset or data.Rotate or 0, -- data.Rotate, catch advmat 2 rotation
 		UseNoise = data.UseNoise or false,
 		NoiseTexture = data.NoiseTexture or "detail/noise_detail_01",
 		NoiseScaleX = data.NoiseScaleX or 1,
