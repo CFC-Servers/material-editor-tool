@@ -60,6 +60,12 @@ function advMat_Table:GetStored()
 	return self.stored
 end
 
+-- indexes are 1 / 3 to catch advmat 2'ed props, removed index 2 support, it was too specialized.
+local alphaTypes = {
+	[1] = "$alphatest",
+	[3] = "$translucent"
+}
+
 function advMat_Table:Set( ent, texture, data )
 	if not IsValid( ent ) then return end
 	data.texture = texture
@@ -106,13 +112,8 @@ function advMat_Table:Set( ent, texture, data )
 			local iTexture = tempMat:GetTexture( "$basetexture" )
 			if not iTexture then return end
 
-			local alphaTypes = {
-				[1] = "$alphatest",
-				[3] = "$translucent"
-			}
-
 			if dataV.AlphaType > 0 then
-				matTable[ alphaTypes[data.AlphaType ] ] = 1
+				matTable[alphaTypes[data.AlphaType]] = 1
 			end
 
 			for index, currData in pairs( dataV ) do
