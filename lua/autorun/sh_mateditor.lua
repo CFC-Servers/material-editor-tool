@@ -28,13 +28,14 @@ function advMat_Table:ValidateAdvmatData( data )
 		ScaleY = data.ScaleY or 1,
 		OffsetX = data.OffsetX or 0,
 		OffsetY = data.OffsetY or 0,
-		ROffset = data.ROffset or 0,
+		ROffset = data.ROffset or data.Rotate or 0, -- data.Rotate, catch advmat 2 rotation
 		UseNoise = data.UseNoise or false,
 		NoiseTexture = data.NoiseTexture or "detail/noise_detail_01",
 		NoiseScaleX = data.NoiseScaleX or 1,
 		NoiseScaleY = data.NoiseScaleY or 1,
 		NoiseOffsetX = data.NoiseOffsetX or 0,
 		NoiseOffsetY = data.NoiseOffsetY or 0,
+		AlphaType = data.AlphaType or 0,
 	}
 	return dataValid
 
@@ -44,7 +45,7 @@ function advMat_Table:GetMaterialPathId( data )
 	local dataValid = self:ValidateAdvmatData( data )
 
 	local texture = string.Trim( dataValid.texture )
-	local uid = texture .. "+" .. dataValid.ScaleX .. "+" .. dataValid.ScaleY .. "+" .. dataValid.OffsetX .. "+" .. data.OffsetY .. "+" .. dataValid.ROffset
+	local uid = texture .. "+" .. dataValid.ScaleX .. "+" .. dataValid.ScaleY .. "+" .. dataValid.OffsetX .. "+" .. data.OffsetY .. "+" .. dataValid.ROffset .. "+" .. dataValid.AlphaType
 
 	if dataValid.UseNoise then
 		uid = uid .. dataValid.NoiseTexture .. "+" .. dataValid.NoiseScaleX .. "+" .. dataValid.NoiseScaleY .. "+" .. dataValid.NoiseOffsetX .. "+" .. dataValid.NoiseOffsetY
@@ -58,6 +59,12 @@ end
 function advMat_Table:GetStored()
 	return self.stored
 end
+
+-- indexes are 1 / 3 to catch advmat 2'ed props, removed index 2 support, it was too specialized.
+local alphaTypes = {
+	[1] = "$alphatest",
+	[3] = "$translucent"
+}
 
 function advMat_Table:Set( ent, texture, data )
 	if not IsValid( ent ) then return end
@@ -99,12 +106,15 @@ function advMat_Table:Set( ent, texture, data )
 			local matTable = {
 				["$basetexture"] = tempMat:GetName(),
 				["$basetexturetransform"] = "center .5 .5 scale " .. ( 1 / dataV.ScaleX ) .. " " .. ( 1 / dataV.ScaleY ) .. " rotate " .. dataV.ROffset .. " translate " .. dataV.OffsetX .. " " .. dataV.OffsetY,
-				["$vertexalpha"] = 0,
 				["$vertexcolor"] = 1
 			}
 
 			local iTexture = tempMat:GetTexture( "$basetexture" )
 			if not iTexture then return end
+
+			if dataV.AlphaType > 0 then
+				matTable[alphaTypes[data.AlphaType]] = 1
+			end
 
 			for index, currData in pairs( dataV ) do
 				if ( index:sub( 1, 1 ) == "$" ) then

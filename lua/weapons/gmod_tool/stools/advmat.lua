@@ -14,6 +14,8 @@ TOOL.ClientConVar["noisescalex"] = "1"
 TOOL.ClientConVar["noisescaley"] = "1"
 TOOL.ClientConVar["noiseoffsetx"] = "0"
 TOOL.ClientConVar["noiseoffsety"] = "0"
+TOOL.ClientConVar["alphatype"] = "0"
+
 TOOL.DetailWhitelist = {
 	"concrete",
 	"plaster",
@@ -55,6 +57,7 @@ function TOOL:LeftClick( trace )
 	local noisescaley = tonumber( self:GetClientInfo( "noisescaley" ) )
 	local noiseoffsetx = tonumber( self:GetClientInfo( "noiseoffsetx" ) )
 	local noiseoffsety = tonumber( self:GetClientInfo( "noiseoffsety" ) )
+	local alphatype = tonumber( self:GetClientInfo( "alphatype" ) )
 
 	advMat_Table:Set( trace.Entity, string.Trim( texture ):lower(), {
 		ScaleX = scalex,
@@ -67,7 +70,8 @@ function TOOL:LeftClick( trace )
 		NoiseScaleX = noisescalex,
 		NoiseScaleY = noisescaley,
 		NoiseOffsetX = noiseoffsetx,
-		NoiseOffsetY = noiseoffsety
+		NoiseOffsetY = noiseoffsety,
+		AlphaType = alphatype,
 	} )
 
 	return true
@@ -147,41 +151,41 @@ function TOOL:Think()
 			return
 		end
 
-		if not self.PreviewMat or not self.PreviewMatNoise then
+		if not self.PreviewMat or not self.PreviewNoisedMats then
 			self.PreviewMat = CreateMaterial( "AdvMatPreview", "VertexLitGeneric", {
 				["$basetexture"] = texture,
 				["$basetexturetransform"] = "center .5 .5 scale " .. ( 1 / scalex ) .. " " .. ( 1 / scaley ) .. " rotate " .. roffset .. " translate " .. offsetx .. " " .. offsety,
+				["$vertexalpha"] = 0,
 				["$vertexcolor"] = 1,
-				["$vertexalpha"] = 0
 			} )
 
-			local PreviewMatNoise = {}
+			local previewNoisedMats = {}
 
 			local previewMatTable = {
 				["$basetexture"] = texture,
 				["$basetexturetransform"] = "center .5 .5 scale " .. ( 1 / noisescalex ) .. " " .. ( 1 / noisescaley ) .. " rotate " .. roffset .. " translate " .. noiseoffsetx .. " " .. noiseoffsety,
-				["$vertexcolor"] = 1,
 				["$vertexalpha"] = 0,
+				["$vertexcolor"] = 1,
 				["$detailtexturetransform"] = "center .5 .5 scale 1 1 rotate 0 translate 0 0",
 				["$detailblendmode"] = 0,
 			}
 
 			previewMatTable["$detail"] = self.DetailTranslation[ "concrete" ]
-			PreviewMatNoise.concrete = CreateMaterial( "AdvMatPreviewNoiseConcrete", "VertexLitGeneric", previewMatTable )
+			previewNoisedMats.concrete = CreateMaterial( "AdvMatPreviewNoiseConcrete", "VertexLitGeneric", previewMatTable )
 
 			previewMatTable["$detail"] = self.DetailTranslation[ "plaster" ]
-			PreviewMatNoise.plaster = CreateMaterial( "AdvMatPreviewNoisePlaster", "VertexLitGeneric", previewMatTable )
+			previewNoisedMats.plaster = CreateMaterial( "AdvMatPreviewNoisePlaster", "VertexLitGeneric", previewMatTable )
 
 			previewMatTable["$detail"] = self.DetailTranslation[ "metal" ]
-			PreviewMatNoise.metal = CreateMaterial( "AdvMatPreviewNoiseMetal", "VertexLitGeneric", previewMatTable )
+			previewNoisedMats.metal = CreateMaterial( "AdvMatPreviewNoiseMetal", "VertexLitGeneric", previewMatTable )
 
 			previewMatTable["$detail"] = self.DetailTranslation[ "wood" ]
-			PreviewMatNoise.wood = CreateMaterial( "AdvMatPreviewNoiseWood", "VertexLitGeneric", previewMatTable )
+			previewNoisedMats.wood = CreateMaterial( "AdvMatPreviewNoiseWood", "VertexLitGeneric", previewMatTable )
 
 			previewMatTable["$detail"] = self.DetailTranslation[ "rock" ]
-			PreviewMatNoise.rock = CreateMaterial( "AdvMatPreviewNoiseRock", "VertexLitGeneric", previewMatTable )
+			previewNoisedMats.rock = CreateMaterial( "AdvMatPreviewNoiseRock", "VertexLitGeneric", previewMatTable )
 
-			self.PreviewMatNoise = PreviewMatNoise
+			self.PreviewNoisedMats = previewNoisedMats
 
 		end
 
@@ -197,12 +201,12 @@ function TOOL:Think()
 				noiseTexture = "concrete"
 			end
 
-			self.PreviewMatNoise[noiseTexture]:SetMatrix( "$detailtexturetransform", noiseMatrix )
+			self.PreviewNoisedMats[noiseTexture]:SetMatrix( "$detailtexturetransform", noiseMatrix )
 
 			if self.noise ~= self:GetClientInfo( "noisetexture" ) then
 				self.noise = noiseTexture
 
-				self.Preview = self.PreviewMatNoise[noiseTexture]
+				self.Preview = self.PreviewNoisedMats[noiseTexture]
 			end
 		end
 
@@ -214,7 +218,10 @@ function TOOL:Think()
 		matrix:Rotate( Angle( 0, roffset, 0 ) )
 
 		if mat:GetString( "$basetexture" ) ~= texture then
-			mat:SetTexture( "$basetexture", Material( texture ):GetTexture( "$basetexture" ) )
+			local iMaterial = Material( texture ):GetTexture( "$basetexture" )
+			if iMaterial then
+				mat:SetTexture( "$basetexture", iMaterial )
+			end
 		end
 
 		mat:SetMatrix( "$basetexturetransform", matrix )
@@ -297,7 +304,7 @@ do
 		end
 
 		CPanel:CheckBox( "#tool.advmat.usenoise", "advmat_usenoise" )
-		CPanel:ControlHelp( "If this box is checked, your material will be sharpened using an HD detail texture, controlled by the settings below." )
+		CPanel:ControlHelp( "#tool.advmat.usenoise.helptext" )
 
 		CPanel:AddControl( "ComboBox", {
 			Label = "#tool.advmat.noisetexture",
@@ -316,6 +323,13 @@ do
 				LocalPlayer():ConCommand( "advmat_noise" .. k:lower() .. " " .. v )
 			end
 		end
+
+		local alphabox = CPanel:ComboBox( "#tool.advmat.alphatype", "advmat_alphatype" )
+		alphabox:AddChoice( "#tool.advmat.alphatype.none", 0 )
+		alphabox:AddChoice( "#tool.advmat.alphatype.alphatest", 1 )
+		alphabox:AddChoice( "#tool.advmat.alphatype.translucent", 3 )
+		CPanel:ControlHelp( "#tool.advmat.alphatype.helptext" )
+
 	end
 end
 /*
@@ -334,7 +348,9 @@ if CLIENT then
 	language.Add( "tool.advmat.offsetx", "Horizontal Translation" )
 	language.Add( "tool.advmat.offsety", "Vertical Translation" )
 	language.Add( "tool.advmat.roffset", "Rotation" )
+
 	language.Add( "tool.advmat.usenoise", "Use noise texture" )
+	language.Add( "tool.advmat.usenoise.helptext", "If this box is checked, your material will be sharpened using an HD detail texture, controlled by the settings below." )
 
 	language.Add( "tool.advmat.noisetexture", "Detail type" )
 
@@ -346,6 +362,12 @@ if CLIENT then
 	language.Add( "tool.advmat.details.metal", "Metal" )
 	language.Add( "tool.advmat.details.wood", "Wood" )
 	language.Add( "tool.advmat.details.rock", "Rock" )
+
+	language.Add( "tool.advmat.alphatype", "Alpha Type" )
+	language.Add( "tool.advmat.alphatype.none", "None" )
+	language.Add( "tool.advmat.alphatype.alphatest", "Alphatest" )
+	language.Add( "tool.advmat.alphatype.translucent", "Translucent" )
+	language.Add( "tool.advmat.alphatype.helptext", "Texture-level transparency, for windows, foliage, etc. If unsure, set to None, or AlphaTest." )
 
 	list.Set( "tool.advmat.details", "#tool.advmat.details.concrete", { advmat_noisetexture = "concrete" } )
 	list.Set( "tool.advmat.details", "#tool.advmat.details.plaster", { advmat_noisetexture = "plaster" } )
