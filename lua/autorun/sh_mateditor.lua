@@ -112,7 +112,6 @@ function advMat_Table:Set( ent, texture, data )
 			local iTexture = tempMat:GetTexture( "$basetexture" )
 			if not iTexture then return end
 
-
 			if dataV.AlphaType > 0 then
 				matTable[alphaTypes[data.AlphaType]] = 1
 			end
