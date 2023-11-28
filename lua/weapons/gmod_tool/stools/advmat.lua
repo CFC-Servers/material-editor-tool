@@ -291,7 +291,7 @@ if CLIENT then
 	function TOOL:DrawHUD()
 	end
 
-	hook.Add( "PostDrawOpaqueRenderables", "AdvMatPreview", function()
+	hook.Add( "PostDrawTranslucentRenderables", "AdvMatPreview", function()
 		local player = LocalPlayer()
 
 		if not IsValid( player ) then return end
@@ -309,6 +309,11 @@ if CLIENT then
 
 		if not IsValid( ent ) then return end
 		local mat = toolObj:GetPreviewMat()
+
+		-- according to DrawModel on wiki this will fix a crash
+		local entsFlags = ent:GetEFlags()
+		if bit.band( entsFlags, EF_BONEMERGE ) ~= 0 then return end
+		if bit.band( entsFlags, EF_NODRAW ) ~= 0 then return end
 
 		render.MaterialOverride( mat )
 			ent:DrawModel()
