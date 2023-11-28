@@ -40,15 +40,18 @@ TOOL.Information = {
 	MATERIALIZE
 */
 
+local canAdvmatPlayers = CreateConVar( "advmat_canmaterializeplayers", "1", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Can admins change the Advanced Material of players?", 0, 1 )
+
 -- admins can advmat players
 function TOOL:LegalMaterialize( trace )
 	if trace.Entity:IsPlayer() then
-		if self:GetOwner():IsAdmin() then return true end
+		if self:GetOwner():IsAdmin() and canAdvmatPlayers:GetBool() then return true end
 		return nil
 	end
 
 	return true
 end
+
 
 function TOOL:LeftClick( trace )
 	if not IsValid( trace.Entity ) then return false end
@@ -305,7 +308,11 @@ if CLIENT then
 		if not toolObj then return end
 		if toolObj.Name ~= "Advanced Material" then return end
 
-		local ent = player:GetEyeTrace().Entity
+		local eyeTr = player:GetEyeTrace()
+
+		if not toolObj:LegalMaterialize( eyeTr ) then return end
+
+		local ent = eyeTr.Entity
 
 		if not IsValid( ent ) then return end
 		local mat = toolObj:GetPreviewMat()
