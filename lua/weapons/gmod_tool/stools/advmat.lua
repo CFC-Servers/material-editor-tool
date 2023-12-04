@@ -42,7 +42,6 @@ TOOL.Information = {
 
 local canAdvmatPlayers = CreateConVar( "advmat_canmaterializeplayers", "1", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Can admins change the Advanced Material of players?", 0, 1 )
 
--- admins can advmat players
 function TOOL:LegalMaterialize( trace )
 	if trace.Entity:IsPlayer() then
 		if self:GetOwner():IsAdmin() and canAdvmatPlayers:GetBool() then return true end
