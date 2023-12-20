@@ -396,6 +396,7 @@ do
 		local alphabox = CPanel:ComboBox( "#tool.advmat.alphatype", "advmat_alphatype" )
 		alphabox:AddChoice( "#tool.advmat.alphatype.none", 0 )
 		alphabox:AddChoice( "#tool.advmat.alphatype.alphatest", 1 )
+		alphabox:AddChoice( "#tool.advmat.alphatype.vertexalpha", 2 )
 		alphabox:AddChoice( "#tool.advmat.alphatype.translucent", 3 )
 		CPanel:ControlHelp( "#tool.advmat.alphatype.helptext" )
 
@@ -436,6 +437,7 @@ if CLIENT then
 	language.Add( "tool.advmat.alphatype.none", "None" )
 	language.Add( "tool.advmat.alphatype.alphatest", "Alphatest" )
 	language.Add( "tool.advmat.alphatype.translucent", "Translucent" )
+	language.Add( "tool.advmat.alphatype.vertexalpha", "Vertexalpha" )
 	language.Add( "tool.advmat.alphatype.helptext", "Texture-level transparency, for windows, foliage, etc. If unsure, set to None, or AlphaTest." )
 
 	list.Set( "tool.advmat.details", "#tool.advmat.details.concrete", { advmat_noisetexture = "concrete" } )
