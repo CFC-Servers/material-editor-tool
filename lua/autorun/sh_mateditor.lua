@@ -63,7 +63,7 @@ end
 -- indexes are 1 / 3 to catch advmat 2'ed props, removed index 2 support, it was too specialized.
 local alphaTypes = {
 	[1] = "$alphatest",
-	[3] = "$vertexalpha",
+	[2] = "$vertexalpha",
 	[3] = "$translucent"
 }
 
