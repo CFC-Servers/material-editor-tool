@@ -318,9 +318,8 @@ if CLIENT then
 		local mat = toolObj:GetPreviewMat()
 
 		-- according to DrawModel on wiki this will fix a crash
-		local entsFlags = ent:GetEFlags()
-		if bit.band( entsFlags, EF_BONEMERGE ) ~= 0 then return end
-		if bit.band( entsFlags, EF_NODRAW ) ~= 0 then return end
+		if ent:IsEffectActive( EF_BONEMERGE ) then return end
+		if ent:IsEffectActive( EF_NODRAW ) then return end
 
 		render.MaterialOverride( mat )
 			ent:DrawModel()
