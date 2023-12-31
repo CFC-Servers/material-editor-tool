@@ -16,9 +16,11 @@ function advMat_Table:ResetAdvMaterial( ent )
 
 	if SERVER then
 		duplicator.ClearEntityModifier( ent, "material" )
+		duplicator.ClearEntityModifier( ent, "MaterialData" )
 	end
 
 	ent:SetMaterial( "" )
+	ent:SetNW2String( "AdvMaterialCRC", "" )
 end
 
 function advMat_Table:ValidateAdvmatData( data )

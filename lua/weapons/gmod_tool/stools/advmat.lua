@@ -178,7 +178,7 @@ function TOOL:Reload( trace )
 	if not IsValid( trace.Entity ) then return false end
 	if CLIENT then return true end
 
-	advMat_Table:Set( trace.Entity, "", {} )
+	advMat_Table:ResetAdvMaterial( trace.Entity )
 
 	return true
 end
