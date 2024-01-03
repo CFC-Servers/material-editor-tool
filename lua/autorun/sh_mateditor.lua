@@ -71,7 +71,10 @@ function advMat_Table:Set( ent, texture, data )
 	data.texture = texture
 
 	if SERVER then
-		ent:SetNW2String( "AdvMaterialCRC", util.CRC( tostring( {} ) ) )
+		timer.Simple( 0, function()
+			if not IsValid( ent ) then return end
+			ent:SetNW2String( "AdvMaterialCRC", util.CRC( tostring( {} ) ) )
+		end )
 
 		self:ResetAdvMaterial( ent )
 
