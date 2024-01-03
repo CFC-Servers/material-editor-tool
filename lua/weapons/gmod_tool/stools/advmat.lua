@@ -40,9 +40,22 @@ TOOL.Information = {
 	MATERIALIZE
 */
 
+local canAdvmatPlayers = CreateConVar( "advmat_canmaterializeplayers", "1", { FCVAR_ARCHIVE, FCVAR_REPLICATED }, "Can admins change the Advanced Material of players?", 0, 1 )
+
+-- admins can advmat players
+function TOOL:LegalMaterialize( trace )
+	if trace.Entity:IsPlayer() then
+		if self:GetOwner():IsAdmin() and canAdvmatPlayers:GetBool() then return true end
+		return nil
+	end
+
+	return true
+end
+
+
 function TOOL:LeftClick( trace )
 	if not IsValid( trace.Entity ) then return false end
-	if trace.Entity:IsPlayer() then return false end
+	if not self:LegalMaterialize( trace ) then return false end
 	if CLIENT then return true end
 
 	local texture = self:GetClientInfo( "texture" )
@@ -77,22 +90,52 @@ function TOOL:LeftClick( trace )
 	return true
 end
 
+local function isValidMaterial( matStr )
+	if not matStr then return end
+	if matStr[1] == "*" then return end -- **DISPLACEMENT**, **STUDIO**, etc
+	if matStr == "" then return end
+
+	return true
+end
+
+function TOOL:GetEntsMaterial( ent )
+	local entsOverrideMat = ent:GetMaterial()
+	if isValidMaterial( entsOverrideMat ) then return entsOverrideMat end
+
+	local entsBaseMats = ent:GetMaterials()
+	local primaryMat = entsBaseMats[1]
+
+	if isValidMaterial( primaryMat ) then return primaryMat end
+end
+
 -- copy mats
 function TOOL:RightClick( trace )
-	if trace.Entity:IsPlayer() then return false end
+	if not self:LegalMaterialize( trace ) then return false end
 	if CLIENT then return true end
 
-	local bIsMat = false
-
-	if IsValid( trace.Entity ) and trace.Entity:GetMaterial() ~= "" and trace.Entity:GetMaterial():sub( 1, 1 ) ~= "!" then
-		bIsMat = true
+	local matData = nil
+	local validAdvMat = nil
+	if IsValid( trace.Entity ) then
+		matData = trace.Entity.MaterialData
+		validAdvMat = matData and isValidMaterial( matData.texture )
 	end
 
-	if not bIsMat and trace.HitTexture[1] == "*" and not trace.Entity.MaterialData then
-		return false
+	local matString = ""
+
+	-- building a new material
+	if not validAdvMat then
+		if IsValid( trace.Entity ) then
+			matString = self:GetEntsMaterial( trace.Entity )
+		elseif isValidMaterial( trace.HitTexture ) then
+			matString = trace.HitTexture
+		end
+	else
+		matString = matData.texture
 	end
 
-	local tempMat = Material( trace.HitTexture )
+	if not isValidMaterial( matString ) then return false end -- displacement or smth
+
+	local tempMat = Material( matString )
 	local hitNoise = tempMat:GetString( "$detail" )
 	local noiseTexture = false
 
@@ -103,16 +146,24 @@ function TOOL:RightClick( trace )
 		end
 	end
 
-	local data = trace.Entity.MaterialData or {
-		texture = bIsMat and trace.Entity:GetMaterial() or trace.HitTexture,
-		scalex = 1,
-		scaley = 1,
-		offsetx = 0,
-		offsety = 0,
-		roffset = 0,
-		usenoise = noiseTexture and 1 or 0,
-		noisetexture = noiseTexture
-	}
+	local data = nil
+
+	if matData then
+		data = matData
+	elseif isValidMaterial( matString ) then
+		data = {
+			texture = matString,
+			scalex = 1,
+			scaley = 1,
+			offsetx = 0,
+			offsety = 0,
+			roffset = 0,
+			usenoise = noiseTexture and 1 or 0,
+			noisetexture = noiseTexture
+		}
+	else
+		return false
+	end
 
 	for index, var in pairs( data ) do
 		if isbool( var ) then continue end
@@ -127,9 +178,19 @@ function TOOL:Reload( trace )
 	if not IsValid( trace.Entity ) then return false end
 	if CLIENT then return true end
 
-	advMat_Table:Set( trace.Entity, "", {} )
+	advMat_Table:ResetAdvMaterial( trace.Entity )
 
 	return true
+end
+
+function TOOL:GetPreviewMat( usingNoise )
+	usingNoise = usingNoise or tobool( self:GetClientInfo( "usenoise" ) )
+
+	if usingNoise then
+		return self.PreviewNoise
+	else
+		return self.PreviewMat
+	end
 end
 
 function TOOL:Think()
@@ -197,6 +258,7 @@ function TOOL:Think()
 
 			local noiseTexture = self:GetClientInfo( "noisetexture" )
 
+			-- invalid noise texture
 			if not table.HasValue( self.DetailWhitelist, noiseTexture:lower() ) then
 				noiseTexture = "concrete"
 			end
@@ -206,11 +268,11 @@ function TOOL:Think()
 			if self.noise ~= self:GetClientInfo( "noisetexture" ) then
 				self.noise = noiseTexture
 
-				self.Preview = self.PreviewNoisedMats[noiseTexture]
+				self.PreviewNoise = self.PreviewNoisedMats[noiseTexture]
 			end
 		end
 
-		local mat = bUseNoise and self.Preview or self.PreviewMat
+		local mat = self:GetPreviewMat( bUseNoise )
 
 		local matrix = Matrix()
 		matrix:Scale( Vector( 1 / scalex, 1 / scaley, 1 ) )
@@ -230,10 +292,9 @@ end
 
 if CLIENT then
 	function TOOL:DrawHUD()
-
 	end
 
-	hook.Add( "PostDrawOpaqueRenderables", "AdvMatPreview", function()
+	hook.Add( "PostDrawTranslucentRenderables", "AdvMatPreview", function()
 		local player = LocalPlayer()
 
 		if not IsValid( player ) then return end
@@ -247,15 +308,22 @@ if CLIENT then
 		if not toolObj then return end
 		if toolObj.Name ~= "Advanced Material" then return end
 
-		local ent = player:GetEyeTrace().Entity
+		local eyeTr = player:GetEyeTrace()
+
+		if not toolObj:LegalMaterialize( eyeTr ) then return end
+
+		local ent = eyeTr.Entity
 
 		if not IsValid( ent ) then return end
-		local mat = tobool( toolObj:GetClientInfo( "usenoise" ) ) and toolObj.Preview or toolObj.PreviewMat
+		local mat = toolObj:GetPreviewMat()
+
+		-- according to DrawModel on wiki this will fix a crash
+		if ent:IsEffectActive( EF_BONEMERGE ) then return end
+		if ent:IsEffectActive( EF_NODRAW ) then return end
 
 		render.MaterialOverride( mat )
 			ent:DrawModel()
 		render.MaterialOverride()
-
 	end )
 end
 
@@ -327,6 +395,7 @@ do
 		local alphabox = CPanel:ComboBox( "#tool.advmat.alphatype", "advmat_alphatype" )
 		alphabox:AddChoice( "#tool.advmat.alphatype.none", 0 )
 		alphabox:AddChoice( "#tool.advmat.alphatype.alphatest", 1 )
+		alphabox:AddChoice( "#tool.advmat.alphatype.vertexalpha", 2 )
 		alphabox:AddChoice( "#tool.advmat.alphatype.translucent", 3 )
 		CPanel:ControlHelp( "#tool.advmat.alphatype.helptext" )
 
@@ -367,6 +436,7 @@ if CLIENT then
 	language.Add( "tool.advmat.alphatype.none", "None" )
 	language.Add( "tool.advmat.alphatype.alphatest", "Alphatest" )
 	language.Add( "tool.advmat.alphatype.translucent", "Translucent" )
+	language.Add( "tool.advmat.alphatype.vertexalpha", "Vertexalpha" )
 	language.Add( "tool.advmat.alphatype.helptext", "Texture-level transparency, for windows, foliage, etc. If unsure, set to None, or AlphaTest." )
 
 	list.Set( "tool.advmat.details", "#tool.advmat.details.concrete", { advmat_noisetexture = "concrete" } )
