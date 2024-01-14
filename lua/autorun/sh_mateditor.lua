@@ -245,7 +245,7 @@ else
 			table.insert( requestQueue, net.ReadEntity() )
 		end
 
-		for _, ent in pairs( requestQueue ) do
+		for _, ent in ipairs( requestQueue ) do
 			if IsValid( ent ) and ent.MaterialData then
 				syncTable[ply] = syncTable[ply] or {}
 				table.insert( syncTable[ply], ent )
