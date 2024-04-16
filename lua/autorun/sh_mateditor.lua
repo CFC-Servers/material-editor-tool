@@ -36,6 +36,7 @@ function advMat_Table:ValidateAdvmatData( data )
 		NoiseScaleY = data.NoiseScaleY or 1,
 		NoiseOffsetX = data.NoiseOffsetX or 0,
 		NoiseOffsetY = data.NoiseOffsetY or 0,
+		NoiseROffset = data.NoiseROffset or 0,
 		AlphaType = data.AlphaType or 0,
 	}
 	return dataValid
@@ -49,7 +50,7 @@ function advMat_Table:GetMaterialPathId( data )
 	local uid = texture .. "+" .. dataValid.ScaleX .. "+" .. dataValid.ScaleY .. "+" .. dataValid.OffsetX .. "+" .. data.OffsetY .. "+" .. dataValid.ROffset .. "+" .. dataValid.AlphaType
 
 	if dataValid.UseNoise then
-		uid = uid .. dataValid.NoiseTexture .. "+" .. dataValid.NoiseScaleX .. "+" .. dataValid.NoiseScaleY .. "+" .. dataValid.NoiseOffsetX .. "+" .. dataValid.NoiseOffsetY
+		uid = uid .. dataValid.NoiseTexture .. "+" .. dataValid.NoiseScaleX .. "+" .. dataValid.NoiseScaleY .. "+" .. dataValid.NoiseOffsetX .. "+" .. dataValid.NoiseOffsetY .. "+" .. dataValid.NoiseROffset
 	end
 
 	uid = uid:gsub( "%.", "-" )
@@ -129,7 +130,7 @@ function advMat_Table:Set( ent, texture, data )
 
 			if ( file.Exists( "materials/" .. texture .. "_normal.vtf", "GAME" ) ) then
 				matTable["$bumpmap"] = texture .. "_normal"
-				matTable["$bumptransform"] = "center .5 .5 scale " .. ( 1 / dataV.ScaleX ) .. " " .. ( 1 / dataV.ScaleY ) .. " rotate " .. dataV.ROffset .. " translate " .. dataV.OffsetX .. " " .. dataV.OffsetY
+				matTable["$bumptransform"] = "center .5 .5 scale " .. ( 1 / dataV.ScaleX ) .. " " .. ( 1 / dataV.ScaleY ) .. " rotate " .. dataV.NoiseROffset .. " translate " .. dataV.OffsetX .. " " .. dataV.OffsetY
 			end
 
 			local matrix = Matrix()
@@ -140,7 +141,7 @@ function advMat_Table:Set( ent, texture, data )
 			local noiseMatrix = Matrix()
 			noiseMatrix:Scale( Vector( 1 / dataV.NoiseScaleX, 1 / dataV.NoiseScaleY, 1 ) )
 			noiseMatrix:Translate( Vector( dataV.NoiseOffsetX, dataV.NoiseOffsetY, 0 ) )
-			noiseMatrix:Rotate( Angle( 0, dataV.ROffset, 0 ) )
+			noiseMatrix:Rotate( Angle( 0, dataV.NoiseROffset, 0 ) )
 
 			self.stored[uid] = CreateMaterial( uid, "VertexLitGeneric", matTable )
 			self.stored[uid]:SetTexture( "$basetexture", iTexture )
