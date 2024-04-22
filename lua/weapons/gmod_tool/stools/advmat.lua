@@ -14,7 +14,10 @@ TOOL.ClientConVar["noisescalex"] = "1"
 TOOL.ClientConVar["noisescaley"] = "1"
 TOOL.ClientConVar["noiseoffsetx"] = "0"
 TOOL.ClientConVar["noiseoffsety"] = "0"
+TOOL.ClientConVar["noiseroffset"] = "0"
 TOOL.ClientConVar["alphatype"] = "0"
+
+TOOL.PreviewMats = {}
 
 TOOL.DetailWhitelist = {
 	"concrete",
@@ -70,22 +73,28 @@ function TOOL:LeftClick( trace )
 	local noisescaley = tonumber( self:GetClientInfo( "noisescaley" ) )
 	local noiseoffsetx = tonumber( self:GetClientInfo( "noiseoffsetx" ) )
 	local noiseoffsety = tonumber( self:GetClientInfo( "noiseoffsety" ) )
+	local noiseroffset = tonumber( self:GetClientInfo( "noiseroffset" ) )
 	local alphatype = tonumber( self:GetClientInfo( "alphatype" ) )
 
-	advMat_Table:Set( trace.Entity, string.Trim( texture ):lower(), {
-		ScaleX = scalex,
-		ScaleY = scaley,
-		OffsetX = offsetx,
-		OffsetY = offsety,
-		ROffset = roffset,
-		UseNoise = usenoise,
-		NoiseTexture = noisetexture,
-		NoiseScaleX = noisescalex,
-		NoiseScaleY = noisescaley,
-		NoiseOffsetX = noiseoffsetx,
-		NoiseOffsetY = noiseoffsety,
-		AlphaType = alphatype,
-	} )
+	advMat_Table:Set(
+		trace.Entity,
+		string.Trim( texture ):lower(),
+		{
+			ScaleX = scalex,
+			ScaleY = scaley,
+			OffsetX = offsetx,
+			OffsetY = offsety,
+			ROffset = roffset,
+			UseNoise = usenoise,
+			NoiseTexture = noisetexture,
+			NoiseScaleX = noisescalex,
+			NoiseScaleY = noisescaley,
+			NoiseOffsetX = noiseoffsetx,
+			NoiseOffsetY = noiseoffsety,
+			NoiseROffset = noiseroffset,
+			AlphaType = alphatype,
+		}
+	)
 
 	return true
 end
@@ -135,22 +144,35 @@ function TOOL:RightClick( trace )
 
 	if not isValidMaterial( matString ) then return false end -- displacement or smth
 
-	local tempMat = Material( matString )
-	local hitNoise = tempMat:GetString( "$detail" )
-	local noiseTexture = false
-
-	for index, tex in pairs( self.DetailTranslation ) do
-		if tex == hitNoise then
-			noiseTexture = index
-			break
-		end
-	end
-
 	local data = nil
 
+	-- copy existing advmat
 	if matData then
+		local untranslatedNoise = matData.NoiseTexture
+
 		data = matData
+
+		-- translate the raw texture into what the commands expect, eg 'metal', 'concrete'
+		for index, tex in pairs( self.DetailTranslation ) do
+			if tex == untranslatedNoise then
+				data.NoiseTexture = index
+				data.usenoise = 1
+				break
+			end
+		end
+	-- build advmat data from scratch
 	elseif isValidMaterial( matString ) then
+		local tempMat = Material( matString )
+		noiseTexturePath = tempMat:GetString( "$detail" )
+
+		for index, tex in pairs( self.DetailTranslation ) do
+			if tex == noiseTexturePath then
+				noiseSetting = index
+				validDetail = true
+				break
+			end
+		end
+
 		data = {
 			texture = matString,
 			scalex = 1,
@@ -158,8 +180,8 @@ function TOOL:RightClick( trace )
 			offsetx = 0,
 			offsety = 0,
 			roffset = 0,
-			usenoise = noiseTexture and 1 or 0,
-			noisetexture = noiseTexture
+			usenoise = validDetail and 1 or 0,
+			noisetexture = noiseSetting
 		}
 	else
 		return false
@@ -178,101 +200,99 @@ function TOOL:Reload( trace )
 	if not IsValid( trace.Entity ) then return false end
 	if CLIENT then return true end
 
-	advMat_Table:ResetAdvMaterial( trace.Entity )
+	advMat_Table:Set( trace.Entity, nil, {} )
 
 	return true
 end
 
-function TOOL:GetPreviewMat( usingNoise )
-	usingNoise = usingNoise or tobool( self:GetClientInfo( "usenoise" ) )
+function TOOL:PreviewMatShader()
+	local shaderName = "VertexLitGeneric"
 
-	if usingNoise then
-		return self.PreviewNoise
-	else
-		return self.PreviewMat
-	end
+	return shaderName
 end
+
+function TOOL:GetPreviewMat( shaderName, usenoise, alphatype )
+	usenoise = usenoise or tobool( self:GetClientNumber( "usenoise" ) )
+	alphatype = alphatype or self:GetClientNumber( "alphatype" )
+
+	local matName = shaderName or self:PreviewMatShader()
+	matName = "AdvMatPreview" .. matName
+	if usenoise then
+		matName = matName .. "Noise"
+	end
+	matName = matName .. "Alpha" .. tostring( alphatype )
+
+	return self.PreviewMats[matName], matName
+end
+
+local alphaTypes = {
+	[1] = "$alphatest",
+	[2] = "$vertexalpha",
+	[3] = "$translucent"
+}
 
 function TOOL:Think()
 	if CLIENT then
 		local texture = self:GetClientInfo( "texture" )
+		if texture == "" then
+			return
+		end
+
 		local scalex = self:GetClientNumber( "scalex", 1 )
 		local scaley = self:GetClientNumber( "scaley", 1 )
 		local offsetx = self:GetClientNumber( "offsetx" )
 		local offsety = self:GetClientNumber( "offsety" )
 		local roffset = self:GetClientNumber( "roffset" )
 
-		local bUseNoise = tobool( self:GetClientInfo( "usenoise" ) )
+		local usenoise = tobool( self:GetClientInfo( "usenoise" ) )
+		local noisetexture = self:GetClientInfo( "noisetexture" )
 		local noisescalex = self:GetClientNumber( "noisescalex", 1 )
 		local noisescaley = self:GetClientNumber( "noisescaley", 1 )
 		local noiseoffsetx = self:GetClientNumber( "noiseoffsetx", 0 )
 		local noiseoffsety = self:GetClientNumber( "noiseoffsety", 0 )
+		local noiseroffset = self:GetClientNumber( "noiseroffset" )
 
-		if texture == "" then
-			return
+		local alphatype = tonumber( self:GetClientInfo( "alphatype" ) )
+
+		local shaderName = self:PreviewMatShader()
+
+		local mat, matName = self:GetPreviewMat( shaderName, usenoise, alphatype )
+		if not mat then
+			local previewMatTable = {}
+
+			previewMatTable["$basetexture"] = texture
+			previewMatTable["$basetexturetransform"] = "center .5 .5 scale " .. ( 1 / noisescalex ) .. " " .. ( 1 / noisescaley ) .. " rotate " .. roffset .. " translate " .. noiseoffsetx .. " " .. noiseoffsety
+			previewMatTable["$vertexcolor"] = 1
+
+			if alphatype > 0 then
+				previewMatTable[alphaTypes[alphatype]] = 1
+			end
+
+			mat = CreateMaterial( matName, shaderName, previewMatTable )
+			self.PreviewMats[matName] = mat
 		end
 
-		if not self.PreviewMat or not self.PreviewNoisedMats then
-			self.PreviewMat = CreateMaterial( "AdvMatPreview", "VertexLitGeneric", {
-				["$basetexture"] = texture,
-				["$basetexturetransform"] = "center .5 .5 scale " .. ( 1 / scalex ) .. " " .. ( 1 / scaley ) .. " rotate " .. roffset .. " translate " .. offsetx .. " " .. offsety,
-				["$vertexalpha"] = 0,
-				["$vertexcolor"] = 1,
-			} )
+		local desiredDetail
+		local currentDetail = mat:GetString( "$detail" )
 
-			local previewNoisedMats = {}
+		if usenoise then
+			desiredDetail = self.DetailTranslation[ noisetexture ]
 
-			local previewMatTable = {
-				["$basetexture"] = texture,
-				["$basetexturetransform"] = "center .5 .5 scale " .. ( 1 / noisescalex ) .. " " .. ( 1 / noisescaley ) .. " rotate " .. roffset .. " translate " .. noiseoffsetx .. " " .. noiseoffsety,
-				["$vertexalpha"] = 0,
-				["$vertexcolor"] = 1,
-				["$detailtexturetransform"] = "center .5 .5 scale 1 1 rotate 0 translate 0 0",
-				["$detailblendmode"] = 0,
-			}
+			if currentDetail ~= desiredDetail then
+				mat:SetTexture( "$detail", desiredDetail )
+			end
 
-			previewMatTable["$detail"] = self.DetailTranslation[ "concrete" ]
-			previewNoisedMats.concrete = CreateMaterial( "AdvMatPreviewNoiseConcrete", "VertexLitGeneric", previewMatTable )
-
-			previewMatTable["$detail"] = self.DetailTranslation[ "plaster" ]
-			previewNoisedMats.plaster = CreateMaterial( "AdvMatPreviewNoisePlaster", "VertexLitGeneric", previewMatTable )
-
-			previewMatTable["$detail"] = self.DetailTranslation[ "metal" ]
-			previewNoisedMats.metal = CreateMaterial( "AdvMatPreviewNoiseMetal", "VertexLitGeneric", previewMatTable )
-
-			previewMatTable["$detail"] = self.DetailTranslation[ "wood" ]
-			previewNoisedMats.wood = CreateMaterial( "AdvMatPreviewNoiseWood", "VertexLitGeneric", previewMatTable )
-
-			previewMatTable["$detail"] = self.DetailTranslation[ "rock" ]
-			previewNoisedMats.rock = CreateMaterial( "AdvMatPreviewNoiseRock", "VertexLitGeneric", previewMatTable )
-
-			self.PreviewNoisedMats = previewNoisedMats
-
-		end
-
-		if bUseNoise then
 			local noiseMatrix = Matrix()
 			noiseMatrix:Scale( Vector( 1 / noisescalex, 1 / noisescaley, 1 ) )
 			noiseMatrix:Translate( Vector( noiseoffsetx, noiseoffsety, 0 ) )
-			noiseMatrix:Rotate( Angle( 0, roffset, 0 ) )
+			noiseMatrix:Rotate( Angle( 0, noiseroffset, 0 ) )
 
-			local noiseTexture = self:GetClientInfo( "noisetexture" )
+			mat:SetMatrix( "$detailtexturetransform", noiseMatrix )
 
-			-- invalid noise texture
-			if not table.HasValue( self.DetailWhitelist, noiseTexture:lower() ) then
-				noiseTexture = "concrete"
-			end
-
-			self.PreviewNoisedMats[noiseTexture]:SetMatrix( "$detailtexturetransform", noiseMatrix )
-
-			if self.noise ~= self:GetClientInfo( "noisetexture" ) then
-				self.noise = noiseTexture
-
-				self.PreviewNoise = self.PreviewNoisedMats[noiseTexture]
-			end
+		elseif currentDetail then
+			mat:SetUndefined( "$detail" )
+			mat:SetUndefined( "$detailtexturetransform" )
 		end
-
-		local mat = self:GetPreviewMat( bUseNoise )
 
 		local matrix = Matrix()
 		matrix:Scale( Vector( 1 / scalex, 1 / scaley, 1 ) )
@@ -317,6 +337,8 @@ if CLIENT then
 		if not IsValid( ent ) then return end
 		local mat = toolObj:GetPreviewMat()
 
+		if not mat then return end
+
 		-- according to DrawModel on wiki this will fix a crash
 		if ent:IsEffectActive( EF_BONEMERGE ) then return end
 		if ent:IsEffectActive( EF_NODRAW ) then return end
@@ -324,6 +346,15 @@ if CLIENT then
 		render.MaterialOverride( mat )
 			ent:DrawModel()
 		render.MaterialOverride()
+
+		-- stops entity drawing next tick, allowing for transparency to actually be previewed
+		if toolObj:GetClientNumber( "alphatype" ) <= 0 then return end
+		if ent.RenderOverride then return end
+
+		ent.RenderOverride = function( self )
+			self.RenderOverride = nil
+			return
+		end
 	end )
 end
 
@@ -351,6 +382,28 @@ do
 	}
 
 	function TOOL.BuildCPanel( CPanel )
+		CPanel:AddControl( "ComboBox", {
+			Label = "#Presets",
+			MenuButton = 1,
+			Folder = "advmat_reborn",
+			Options = {},
+			CVars = {
+				[0] = "advmat_texture",
+				[1] = "advmat_scalex",
+				[2] = "advmat_scaley",
+				[3] = "advmat_offsetx",
+				[4] = "advmat_offsety",
+				[5] = "advmat_roffset",
+				[6] = "advmat_usenoise",
+				[7] = "advmat_noisescalex",
+				[8] = "advmat_noisescaley",
+				[9] = "advmat_noiseoffsetx",
+				[10] = "advmat_noiseoffsety",
+				[11] = "advmat_noiseroffset",
+				[12] = "advmat_alphatype",
+			}
+		} )
+
 		CPanel:AddControl( "Header", {
 			Description = "#tool.advmat.desc"
 		} )
@@ -383,6 +436,7 @@ do
 		CPanel:NumSlider( "#tool.advmat.scaley", "advmat_noisescaley", 0.01, 8, 2 )
 		CPanel:NumSlider( "#tool.advmat.offsetx", "advmat_noiseoffsetx", 0, 8, 2 )
 		CPanel:NumSlider( "#tool.advmat.offsety", "advmat_noiseoffsety", 0, 8, 2 )
+		CPanel:NumSlider( "#tool.advmat.roffset", "advmat_noiseroffset", -180, 180, 2 )
 
 		local noiseTextureReset = CPanel:Button( "#tool.advmat.reset.noise" )
 
@@ -411,6 +465,7 @@ if CLIENT then
 	language.Add( "tool.advmat.right", "Copy material" )
 	language.Add( "tool.advmat.reload", "Remove material" )
 	language.Add( "tool.advmat.desc", "Use any material on any prop, with the ability to copy materials from the map." )
+
 	language.Add( "tool.advmat.texture", "Material to use" )
 	language.Add( "tool.advmat.scalex", "Width Magnification" )
 	language.Add( "tool.advmat.scaley", "Height Magnification" )
