@@ -6,6 +6,14 @@ end
 
 advMat_Table = advMat_Table or {}
 
+advMat_Table.DetailTranslations = {
+	concrete = "detail/noise_detail_01",
+	plaster = "detail/plaster_detail_01",
+	metal = "detail/metal_detail_01",
+	wood = "detail/wood_detail_01",
+	rock = "detail/rock_detail_01",
+}
+
 -- cache of built "UID"s so mats with the same stuff don't build twice 
 advMat_Table.stored = advMat_Table.stored or {}
 
@@ -23,6 +31,26 @@ function advMat_Table:ResetAdvMaterial( ent )
 end
 
 function advMat_Table:ValidateAdvmatData( data )
+	local useNoise = data.UseNoise
+	if isbool( useNoise ) then
+		if useNoise then
+			useNoise = 1
+		else
+			useNoise = 0
+		end
+	end
+
+	local noiseSetting = data.NoiseSetting
+	local oldTexture = data.NoiseTexture
+	if oldTexture then
+		for setting, translation in pairs( advMat_Table.DetailTranslations ) do
+			if translation == oldTexture then
+				noiseSetting = setting
+				break
+			end
+		end
+	end
+
 	local dataValid = {
 		texture = data.texture:lower() or "",
 		ScaleX = data.ScaleX or 1,
@@ -30,8 +58,8 @@ function advMat_Table:ValidateAdvmatData( data )
 		OffsetX = data.OffsetX or 0,
 		OffsetY = data.OffsetY or 0,
 		ROffset = data.ROffset or data.Rotate or 0, -- data.Rotate, catch advmat 2 rotation
-		UseNoise = data.UseNoise or false,
-		NoiseTexture = data.NoiseTexture or "detail/noise_detail_01",
+		UseNoise = useNoise or 0,
+		NoiseSetting = noiseSetting or "",
 		NoiseScaleX = data.NoiseScaleX or 1,
 		NoiseScaleY = data.NoiseScaleY or 1,
 		NoiseOffsetX = data.NoiseOffsetX or 0,
@@ -49,8 +77,8 @@ function advMat_Table:GetMaterialPathId( data )
 	local texture = string.Trim( dataValid.texture )
 	local uid = texture .. "+" .. dataValid.ScaleX .. "+" .. dataValid.ScaleY .. "+" .. dataValid.OffsetX .. "+" .. data.OffsetY .. "+" .. dataValid.ROffset .. "+" .. dataValid.AlphaType
 
-	if dataValid.UseNoise then
-		uid = uid .. dataValid.NoiseTexture .. "+" .. dataValid.NoiseScaleX .. "+" .. dataValid.NoiseScaleY .. "+" .. dataValid.NoiseOffsetX .. "+" .. dataValid.NoiseOffsetY .. "+" .. dataValid.NoiseROffset
+	if dataValid.UseNoise > 0 then
+		uid = uid .. dataValid.NoiseSetting .. "+" .. dataValid.NoiseScaleX .. "+" .. dataValid.NoiseScaleY .. "+" .. dataValid.NoiseOffsetX .. "+" .. dataValid.NoiseOffsetY .. "+" .. dataValid.NoiseROffset
 	end
 
 	uid = uid:gsub( "%.", "-" )
@@ -124,8 +152,8 @@ function advMat_Table:Set( ent, texture, data )
 				end
 			end
 
-			if ( dataV.UseNoise ) then
-				matTable["$detail"] = dataV.NoiseTexture
+			if dataV.UseNoise > 0 and advMat_Table.DetailTranslations[dataV.NoiseSetting] then
+				matTable["$detail"] = advMat_Table.DetailTranslations[dataV.NoiseSetting]
 			end
 
 			if ( file.Exists( "materials/" .. texture .. "_normal.vtf", "GAME" ) ) then

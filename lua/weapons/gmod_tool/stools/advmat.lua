@@ -3,7 +3,7 @@ AddCSLuaFile()
 TOOL.Category = "Render"
 TOOL.Name = "Advanced Material"
 TOOL.ClientConVar["texture"] = ""
-TOOL.ClientConVar["noisetexture"] = "concrete"
+TOOL.ClientConVar["noisesetting"] = "concrete"
 TOOL.ClientConVar["scalex"] = "1"
 TOOL.ClientConVar["scaley"] = "1"
 TOOL.ClientConVar["offsetx"] = "0"
@@ -19,20 +19,6 @@ TOOL.ClientConVar["alphatype"] = "0"
 
 TOOL.PreviewMats = {}
 
-TOOL.DetailWhitelist = {
-	"concrete",
-	"plaster",
-	"metal",
-	"wood",
-	"rock",
-}
-TOOL.DetailTranslation = {
-	concrete = "detail/noise_detail_01",
-	plaster = "detail/plaster_detail_01",
-	metal = "detail/metal_detail_01",
-	wood = "detail/wood_detail_01",
-	rock = "detail/rock_detail_01",
-}
 TOOL.Information = {
 	{ name = "left" },
 	{ name = "right" },
@@ -67,8 +53,8 @@ function TOOL:LeftClick( trace )
 	local offsetx = tonumber( self:GetClientInfo( "offsetx" ) )
 	local offsety = tonumber( self:GetClientInfo( "offsety" ) )
 	local roffset = tonumber( self:GetClientInfo( "roffset" ) )
-	local usenoise = tobool( self:GetClientInfo( "usenoise" ) )
-	local noisetexture = self.DetailTranslation[self:GetClientInfo( "noisetexture" )] or "detail/noise_detail_01"
+	local usenoise = tonumber( self:GetClientInfo( "usenoise" ) )
+	local noisesetting = self:GetClientInfo( "noisesetting" ) or "concrete"
 	local noisescalex = tonumber( self:GetClientInfo( "noisescalex" ) )
 	local noisescaley = tonumber( self:GetClientInfo( "noisescaley" ) )
 	local noiseoffsetx = tonumber( self:GetClientInfo( "noiseoffsetx" ) )
@@ -86,7 +72,7 @@ function TOOL:LeftClick( trace )
 			OffsetY = offsety,
 			ROffset = roffset,
 			UseNoise = usenoise,
-			NoiseTexture = noisetexture,
+			NoiseSetting = noisesetting,
 			NoiseScaleX = noisescalex,
 			NoiseScaleY = noisescaley,
 			NoiseOffsetX = noiseoffsetx,
@@ -148,27 +134,28 @@ function TOOL:RightClick( trace )
 
 	-- copy existing advmat
 	if matData then
-		local untranslatedNoise = matData.NoiseTexture
+		local untranslatedNoise = matData.NoiseSetting
 
 		data = matData
 
 		-- translate the raw texture into what the commands expect, eg 'metal', 'concrete'
-		for index, tex in pairs( self.DetailTranslation ) do
-			if tex == untranslatedNoise then
-				data.NoiseTexture = index
-				data.usenoise = 1
+		for setting, translation in pairs( advMat_Table.DetailTranslations ) do
+			if translation == untranslatedNoise then
+				data.noisesetting = setting
 				break
 			end
 		end
 	-- build advmat data from scratch
 	elseif isValidMaterial( matString ) then
 		local tempMat = Material( matString )
-		noiseTexturePath = tempMat:GetString( "$detail" )
+		local usenoise = 0
+		local noiseTexturePath = tempMat:GetString( "$detail" )
+		local noiseSetting
 
-		for index, tex in pairs( self.DetailTranslation ) do
-			if tex == noiseTexturePath then
-				noiseSetting = index
-				validDetail = true
+		for setting, translation in pairs( advMat_Table.DetailTranslations ) do
+			if translation == noiseTexturePath then
+				noiseSetting = setting
+				usenoise = 1
 				break
 			end
 		end
@@ -180,8 +167,8 @@ function TOOL:RightClick( trace )
 			offsetx = 0,
 			offsety = 0,
 			roffset = 0,
-			usenoise = validDetail and 1 or 0,
-			noisetexture = noiseSetting
+			usenoise = usenoise,
+			noisesetting = noiseSetting
 		}
 	else
 		return false
@@ -244,8 +231,8 @@ function TOOL:Think()
 		local offsety = self:GetClientNumber( "offsety" )
 		local roffset = self:GetClientNumber( "roffset" )
 
-		local usenoise = tobool( self:GetClientInfo( "usenoise" ) )
-		local noisetexture = self:GetClientInfo( "noisetexture" )
+		local usenoise = self:GetClientNumber( "usenoise" )
+		local noisesetting = self:GetClientInfo( "noisesetting" )
 		local noisescalex = self:GetClientNumber( "noisescalex", 1 )
 		local noisescaley = self:GetClientNumber( "noisescaley", 1 )
 		local noiseoffsetx = self:GetClientNumber( "noiseoffsetx", 0 )
@@ -272,11 +259,10 @@ function TOOL:Think()
 			self.PreviewMats[matName] = mat
 		end
 
-		local desiredDetail
-		local currentDetail = mat:GetString( "$detail" )
 
-		if usenoise then
-			desiredDetail = self.DetailTranslation[ noisetexture ]
+		if usenoise > 0 then
+			local desiredDetail = advMat_Table.DetailTranslations[ noisesetting ]
+			local currentDetail = mat:GetString( "$detail" )
 
 			if currentDetail ~= desiredDetail then
 				mat:SetTexture( "$detail", desiredDetail )
@@ -428,7 +414,7 @@ do
 		CPanel:ControlHelp( "#tool.advmat.usenoise.helptext" )
 
 		CPanel:AddControl( "ComboBox", {
-			Label = "#tool.advmat.noisetexture",
+			Label = "#tool.advmat.noisesetting",
 			Options = list.Get( "tool.advmat.details" )
 		} )
 
@@ -438,9 +424,9 @@ do
 		CPanel:NumSlider( "#tool.advmat.offsety", "advmat_noiseoffsety", 0, 8, 2 )
 		CPanel:NumSlider( "#tool.advmat.roffset", "advmat_noiseroffset", -180, 180, 2 )
 
-		local noiseTextureReset = CPanel:Button( "#tool.advmat.reset.noise" )
+		local noiseReset = CPanel:Button( "#tool.advmat.reset.noise" )
 
-		function noiseTextureReset:DoClick()
+		function noiseReset:DoClick()
 			for k, v in pairs( transformData ) do
 				LocalPlayer():ConCommand( "advmat_noise" .. k:lower() .. " " .. v )
 			end
@@ -476,7 +462,7 @@ if CLIENT then
 	language.Add( "tool.advmat.usenoise", "Use noise texture" )
 	language.Add( "tool.advmat.usenoise.helptext", "If this box is checked, your material will be sharpened using an HD detail texture, controlled by the settings below." )
 
-	language.Add( "tool.advmat.noisetexture", "Detail type" )
+	language.Add( "tool.advmat.noisesetting", "Detail type" )
 
 	language.Add( "tool.advmat.reset.base", "Reset Texture Transformations" )
 	language.Add( "tool.advmat.reset.noise", "Reset Noise Transformations" )
@@ -494,9 +480,9 @@ if CLIENT then
 	language.Add( "tool.advmat.alphatype.vertexalpha", "Vertexalpha" )
 	language.Add( "tool.advmat.alphatype.helptext", "Texture-level transparency, for windows, foliage, etc. If unsure, set to None, or AlphaTest." )
 
-	list.Set( "tool.advmat.details", "#tool.advmat.details.concrete", { advmat_noisetexture = "concrete" } )
-	list.Set( "tool.advmat.details", "#tool.advmat.details.plaster", { advmat_noisetexture = "plaster" } )
-	list.Set( "tool.advmat.details", "#tool.advmat.details.metal", { advmat_noisetexture = "metal" } )
-	list.Set( "tool.advmat.details", "#tool.advmat.details.wood", { advmat_noisetexture = "wood" } )
-	list.Set( "tool.advmat.details", "#tool.advmat.details.rock", { advmat_noisetexture = "rock" } )
+	list.Set( "tool.advmat.details", "#tool.advmat.details.concrete", { advmat_noisesetting = "concrete" } )
+	list.Set( "tool.advmat.details", "#tool.advmat.details.plaster", { advmat_noisesetting = "plaster" } )
+	list.Set( "tool.advmat.details", "#tool.advmat.details.metal", { advmat_noisesetting = "metal" } )
+	list.Set( "tool.advmat.details", "#tool.advmat.details.wood", { advmat_noisesetting = "wood" } )
+	list.Set( "tool.advmat.details", "#tool.advmat.details.rock", { advmat_noisesetting = "rock" } )
 end
