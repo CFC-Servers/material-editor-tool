@@ -199,12 +199,12 @@ function TOOL:PreviewMatShader()
 end
 
 function TOOL:GetPreviewMat( shaderName, usenoise, alphatype )
-	usenoise = usenoise or tobool( self:GetClientNumber( "usenoise" ) )
+	usenoise = usenoise or self:GetClientNumber( "usenoise" )
 	alphatype = alphatype or self:GetClientNumber( "alphatype" )
 
 	local matName = shaderName or self:PreviewMatShader()
 	matName = "AdvMatPreview" .. matName
-	if usenoise then
+	if usenoise > 0 then
 		matName = matName .. "Noise"
 	end
 	matName = matName .. "Alpha" .. tostring( alphatype )
@@ -217,6 +217,8 @@ local alphaTypes = {
 	[2] = "$vertexalpha",
 	[3] = "$translucent"
 }
+
+local translatorCache = {}
 
 function TOOL:Think()
 	if CLIENT then
@@ -285,10 +287,19 @@ function TOOL:Think()
 		matrix:Translate( Vector( offsetx, offsety, 0 ) )
 		matrix:Rotate( Angle( 0, roffset, 0 ) )
 
-		if mat:GetString( "$basetexture" ) ~= texture then
-			local iMaterial = Material( texture ):GetTexture( "$basetexture" )
-			if iMaterial then
-				mat:SetTexture( "$basetexture", iMaterial )
+		local iMat = translatorCache[texture]
+		-- only try to fill the cache once
+		if not iMat and not translatorCache[texture] then
+			iMat = Material( texture )
+			translatorCache[texture] = iMat or true
+		end
+
+		if iMat then
+			local baseTex = iMat:GetTexture( "$basetexture" )
+			local baseTexName = baseTex:GetName()
+
+			if mat:GetString( "$basetexture" ) ~= baseTexName and baseTex then
+				mat:SetTexture( "$basetexture", baseTex )
 			end
 		end
 
