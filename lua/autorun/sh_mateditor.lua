@@ -60,6 +60,7 @@ function advMat_Table:ValidateAdvmatData( data )
 		ROffset = data.ROffset or data.Rotate or 0, -- data.Rotate, catch advmat 2 rotation
 		UseNoise = useNoise or 0,
 		NoiseSetting = noiseSetting or "",
+		StepOverride = data.StepOverride or "auto",
 		NoiseScaleX = data.NoiseScaleX or 1,
 		NoiseScaleY = data.NoiseScaleY or 1,
 		NoiseOffsetX = data.NoiseOffsetX or 0,

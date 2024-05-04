@@ -4,6 +4,7 @@ TOOL.Category = "Render"
 TOOL.Name = "Advanced Material"
 TOOL.ClientConVar["texture"] = ""
 TOOL.ClientConVar["noisesetting"] = "concrete"
+TOOL.ClientConVar["stepoverride"] = "auto"
 TOOL.ClientConVar["scalex"] = "1"
 TOOL.ClientConVar["scaley"] = "1"
 TOOL.ClientConVar["offsetx"] = "0"
@@ -55,6 +56,7 @@ function TOOL:LeftClick( trace )
 	local roffset = tonumber( self:GetClientInfo( "roffset" ) )
 	local usenoise = tonumber( self:GetClientInfo( "usenoise" ) )
 	local noisesetting = self:GetClientInfo( "noisesetting" ) or "concrete"
+	local stepoverride = self:GetClientInfo( "stepoverride" ) or "auto"
 	local noisescalex = tonumber( self:GetClientInfo( "noisescalex" ) )
 	local noisescaley = tonumber( self:GetClientInfo( "noisescaley" ) )
 	local noiseoffsetx = tonumber( self:GetClientInfo( "noiseoffsetx" ) )
@@ -73,6 +75,7 @@ function TOOL:LeftClick( trace )
 			ROffset = roffset,
 			UseNoise = usenoise,
 			NoiseSetting = noisesetting,
+			StepOverride = stepoverride,
 			NoiseScaleX = noisescalex,
 			NoiseScaleY = noisescaley,
 			NoiseOffsetX = noiseoffsetx,
@@ -168,7 +171,8 @@ function TOOL:RightClick( trace )
 			offsety = 0,
 			roffset = 0,
 			usenoise = usenoise,
-			noisesetting = noiseSetting
+			noisesetting = noiseSetting,
+			stepoverride = "auto",
 		}
 	else
 		return false
@@ -398,6 +402,7 @@ do
 				[10] = "advmat_noiseoffsety",
 				[11] = "advmat_noiseroffset",
 				[12] = "advmat_alphatype",
+				[13] = "advmat_stepoverride",
 			}
 		} )
 
@@ -450,6 +455,12 @@ do
 		alphabox:AddChoice( "#tool.advmat.alphatype.translucent", 3 )
 		CPanel:ControlHelp( "#tool.advmat.alphatype.helptext" )
 
+		CPanel:AddControl( "ComboBox", {
+			Label = "#tool.advmat.stepoverride",
+			Options = list.Get( "tool.advmat.stepoverride" )
+		} )
+		CPanel:ControlHelp( "#tool.advmat.stepoverride.helptext" )
+
 	end
 end
 /*
@@ -473,10 +484,11 @@ if CLIENT then
 	language.Add( "tool.advmat.usenoise", "Use noise texture" )
 	language.Add( "tool.advmat.usenoise.helptext", "If this box is checked, your material will be sharpened using an HD detail texture, controlled by the settings below." )
 
-	language.Add( "tool.advmat.noisesetting", "Detail type" )
-
 	language.Add( "tool.advmat.reset.base", "Reset Texture Transformations" )
 	language.Add( "tool.advmat.reset.noise", "Reset Noise Transformations" )
+
+
+	language.Add( "tool.advmat.noisesetting", "Detail type" )
 
 	language.Add( "tool.advmat.details.concrete", "Concrete" )
 	language.Add( "tool.advmat.details.plaster", "Plaster" )
@@ -484,16 +496,83 @@ if CLIENT then
 	language.Add( "tool.advmat.details.wood", "Wood" )
 	language.Add( "tool.advmat.details.rock", "Rock" )
 
+	list.Set( "tool.advmat.details", "#tool.advmat.details.concrete", { advmat_noisesetting = "concrete" } )
+	list.Set( "tool.advmat.details", "#tool.advmat.details.plaster", { advmat_noisesetting = "plaster" } )
+	list.Set( "tool.advmat.details", "#tool.advmat.details.metal", { advmat_noisesetting = "metal" } )
+	list.Set( "tool.advmat.details", "#tool.advmat.details.wood", { advmat_noisesetting = "wood" } )
+	list.Set( "tool.advmat.details", "#tool.advmat.details.rock", { advmat_noisesetting = "rock" } )
+
+
 	language.Add( "tool.advmat.alphatype", "Alpha Type" )
+
 	language.Add( "tool.advmat.alphatype.none", "None" )
 	language.Add( "tool.advmat.alphatype.alphatest", "Alphatest" )
 	language.Add( "tool.advmat.alphatype.translucent", "Translucent" )
 	language.Add( "tool.advmat.alphatype.vertexalpha", "Vertexalpha" )
 	language.Add( "tool.advmat.alphatype.helptext", "Texture-level transparency, for windows, foliage, etc. If unsure, set to None, or AlphaTest." )
 
-	list.Set( "tool.advmat.details", "#tool.advmat.details.concrete", { advmat_noisesetting = "concrete" } )
-	list.Set( "tool.advmat.details", "#tool.advmat.details.plaster", { advmat_noisesetting = "plaster" } )
-	list.Set( "tool.advmat.details", "#tool.advmat.details.metal", { advmat_noisesetting = "metal" } )
-	list.Set( "tool.advmat.details", "#tool.advmat.details.wood", { advmat_noisesetting = "wood" } )
-	list.Set( "tool.advmat.details", "#tool.advmat.details.rock", { advmat_noisesetting = "rock" } )
+
+	language.Add( "tool.advmat.stepoverride", "Advanced footstep sounds." )
+
+	local stepOverrides = {
+		{ "none", "None" },
+		{ "auto", "Auto", },
+		{ "metal", "Metal" },
+		{ "metalbox", "Metal Box" },
+		{ "vent", "Vent" },
+		{ "grate", "Grate" },
+		{ "ladder", "Ladder" },
+		{ "weapon", "Weapon" },
+		{ "grenade", "Grenade" },
+		{ "chainlink", "Chain Link" },
+
+		{ "snow", "Snow" },
+		{ "dirt", "Dirt" },
+		{ "sand", "Sand" },
+		{ "grass", "Grass" },
+		{ "gravel", "Gravel" },
+
+		{ "mud", "Mud" },
+		{ "slime", "Slime" },
+
+		{ "water", "Water" },
+		{ "wade", "Water ( Wade )" },
+
+		{ "flesh", "Flesh" },
+		{ "fleshsquish", "Flesh ( Squishy )" },
+
+		{ "concrete", "Concrete" },
+		{ "tile", "Tile" },
+		{ "glass", "Glass" },
+		{ "drywall", "Drywall" },
+		{ "celingtile", "Ceiling Tile" },
+		{ "glassbottle", "Glass Bottle" },
+
+		{ "rubber", "Rubber" },
+		{ "cardboard", "Cardboard" },
+		{ "plasticbox", "Plastic Box" },
+		{ "plasticbarrel", "Plastic Barrel" },
+
+		{ "wood", "Wood" },
+		{ "woodbox", "Wood Box" },
+		{ "woodcrate", "Wood Crate" },
+		{ "woodpanel", "Wood Panel" },
+
+	}
+
+	local preamble = "tool.advmat.stepoverride."
+
+	for _, currOverride in ipairs( stepOverrides ) do
+		local key = currOverride[1]
+		local placeholder = preamble .. key
+		local fullText = currOverride[2]
+		language.Add( placeholder, fullText )
+
+		local listKey = "#" .. preamble .. key
+		list.Set( "tool.advmat.stepoverride", listKey, { advmat_stepoverride = key } )
+
+	end
+
+	language.Add( "tool.advmat.stepoverride.helptext", "Overrides footstep sounds\nAuto, footstep sounds are estimated from a material's noise, or texture.\nNone, don't override footstep sounds." )
+
 end
