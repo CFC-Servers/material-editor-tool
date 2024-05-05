@@ -573,6 +573,6 @@ if CLIENT then
 
 	end
 
-	language.Add( "tool.advmat.stepoverride.helptext", "Overrides footstep sounds\nAuto, footstep sounds are estimated from a material's noise, or texture.\nNone, don't override footstep sounds." )
+	language.Add( "tool.advmat.stepoverride.helptext", "Overrides footstep sounds.\nAuto, footstep sounds are estimated from a material's noise, or texture.\nNone, don't override footstep sounds." )
 
 end

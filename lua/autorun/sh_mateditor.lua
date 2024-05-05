@@ -1,5 +1,6 @@
 if SERVER then
-	util.AddNetworkString( "Materialize" )
+	util.AddNetworkString( "AdvMatMaterialize" )
+	util.AddNetworkString( "AdvMatDematerialize" )
 	util.AddNetworkString( "AdvMatInit" )
 	util.AddNetworkString( "AdvMatSync" )
 end
@@ -91,7 +92,7 @@ function advMat_Table:GetStored()
 	return self.stored
 end
 
--- indexes are 1 / 3 to catch advmat 2'ed props, removed index 2 support, it was too specialized.
+-- indexes are 1 2 3 to catch advmat 2'ed props.
 local alphaTypes = {
 	[1] = "$alphatest",
 	[2] = "$vertexalpha",
@@ -185,7 +186,7 @@ function advMat_Table:Set( ent, texture, data )
 end
 
 if CLIENT then
-	net.Receive( "Materialize", function()
+	net.Receive( "AdvMatMaterialize", function()
 		local ent = net.ReadEntity()
 		local texture = net.ReadString()
 		local data = net.ReadTable()
@@ -193,6 +194,11 @@ if CLIENT then
 		if IsValid( ent ) then
 			advMat_Table:Set( ent, texture, data )
 		end
+	end )
+
+	net.Receive( "AdvMatDematerialize", function()
+		local ent = net.ReadEntity()
+		advMat_Table:ResetAdvMaterial( ent )
 	end )
 
 	local requestQueue = {}
@@ -224,13 +230,18 @@ if CLIENT then
 else
 	function advMat_Table:Sync( ent, ply )
 		local data = ent.MaterialData
-		if not data then return end
 
-		net.Start( "Materialize" )
-		net.WriteEntity( ent )
-		net.WriteString( data.texture )
-		net.WriteTable( data )
-		net.Send( ply )
+		if data then
+			net.Start( "AdvMatMaterialize" )
+			net.WriteEntity( ent )
+			net.WriteString( data.texture )
+			net.WriteTable( data )
+			net.Send( ply )
+		else
+			net.Start( "AdvMatDematerialize" )
+			net.WriteEntity( ent )
+			net.Send( ply )
+		end
 	end
 
 	local syncTable = {}
@@ -245,7 +256,7 @@ else
 		for ply, entTable in pairs( syncTable ) do
 			if IsValid( ply ) then
 				for i, ent in pairs( entTable ) do
-					if IsValid( ent ) and ent.MaterialData then
+					if IsValid( ent ) then
 						advMat_Table:Sync( ent, ply )
 						sendCount = sendCount + 1
 					end
@@ -276,7 +287,7 @@ else
 		end
 
 		for _, ent in ipairs( requestQueue ) do
-			if IsValid( ent ) and ent.MaterialData then
+			if IsValid( ent ) then
 				syncTable[ply] = syncTable[ply] or {}
 				table.insert( syncTable[ply], ent )
 

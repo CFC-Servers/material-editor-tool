@@ -6,9 +6,8 @@ local GetGroundEntity = entsMeta.GetGroundEntity
 
 local var = CreateClientConVar( "cl_advmat_overridefootsteps", "1", true, false, "Should player footsteps match the advanced material of the prop they're stepping on?" )
 local enabledBool = var:GetBool()
-cvars.AddChangeCallback( "cl_advmat_overridefootsteps", function( _, _, new ) 
+cvars.AddChangeCallback( "cl_advmat_overridefootsteps", function( _, _, new )
     enabledBool = tobool( new )
-
 end, "advmat_cachebool" )
 
 -- footstep overrides
@@ -55,7 +54,6 @@ local stepOverrides = {
     woodbox = "Wood_Box.Step",
     woodcrate = "Wood_Crate.Step",
     woodpanel = "Wood_Panel.Step",
-
 }
 
 -- backup sounds, using noise textures
@@ -116,6 +114,7 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, pos, foot, _, vol
 
     local theSound
     local override = data.StepOverride
+    local texture = data.texture
 
     -- find the sound!
     if override then
@@ -128,9 +127,26 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, pos, foot, _, vol
         theSound = noiseSounds[ data.NoiseSetting ]
 
     end
-    if not theSound then
-        print( data.texture )
+    if not theSound and texture then
+        -- found no sound
+        if data.NoFallbackFootstepSound then return end
+        -- find footstep from the material's texture, then cache it in the ent's MaterialData, this way stepsound is wiped for new materials
+        local cachedSound = data.CachedFootstepSound
+        if cachedSound then
+            theSound = cachedSound
+        else
+            for needle, currOverride in pairs( stepOverrides ) do
+                if string_find( texture, needle ) then
+                    theSound = currOverride
+                    data.CachedFootstepSound = theSound
+                    break
 
+                end
+            end
+            if not theSound then
+                data.NoFallbackFootstepSound = true
+            end
+        end
     end
 
     if not theSound then return end
@@ -146,13 +162,7 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, pos, foot, _, vol
 
     end
 
-
-    ply:EmitSound( theSound, 65, 100, volume, CHAN_BODY, SND_CHANGE_VOL, 0, filter )
-
-    -- don't hog the hook!
-    infLoop = true
-    hook.Run( "PlayerFootstep", ply, pos, foot, theSound, volume, filter )
-    infLoop = nil
+    ply:EmitSound( theSound, 65, 100, volume, CHAN_STATIC, SND_CHANGE_VOL, 0, filter )
 
     return true
 end )
