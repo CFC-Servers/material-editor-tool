@@ -448,12 +448,16 @@ do
 			end
 		end
 
-		local alphabox = CPanel:ComboBox( "#tool.advmat.alphatype", "advmat_alphatype" )
-		alphabox:AddChoice( "#tool.advmat.alphatype.none", 0 )
-		alphabox:AddChoice( "#tool.advmat.alphatype.alphatest", 1 )
-		alphabox:AddChoice( "#tool.advmat.alphatype.vertexalpha", 2 )
-		alphabox:AddChoice( "#tool.advmat.alphatype.translucent", 3 )
+		CPanel:AddControl( "Label", {
+			Text = "#tool.advmat.advancedsettings"
+		} )
+
+		CPanel:AddControl( "ComboBox", {
+			Label = "#tool.advmat.alphatype",
+			Options = list.Get( "tool.advmat.alphatype" )
+		} )
 		CPanel:ControlHelp( "#tool.advmat.alphatype.helptext" )
+
 
 		CPanel:AddControl( "ComboBox", {
 			Label = "#tool.advmat.stepoverride",
@@ -468,6 +472,20 @@ end
 */
 
 if CLIENT then
+
+	local function assembleList( preamble, command, table )
+		for _, currOverride in ipairs( table ) do
+			local key = currOverride[1]
+			local placeholder = preamble .. "." .. key
+			local fullText = currOverride[2]
+			language.Add( placeholder, fullText )
+
+			local listKey = "#" .. preamble .. "." .. key
+			list.Set( preamble, listKey, { [command] = key } )
+
+		end
+	end
+
 	language.Add( "tool.advmat.name", "Advanced Material" )
 	language.Add( "tool.advmat.left", "Set material" )
 	language.Add( "tool.advmat.right", "Copy material" )
@@ -503,12 +521,20 @@ if CLIENT then
 	list.Set( "tool.advmat.details", "#tool.advmat.details.rock", { advmat_noisesetting = "rock" } )
 
 
+	language.Add( "tool.advmat.advancedsettings", "Advanced Settings" )
+
+
 	language.Add( "tool.advmat.alphatype", "Alpha Type" )
 
-	language.Add( "tool.advmat.alphatype.none", "None" )
-	language.Add( "tool.advmat.alphatype.alphatest", "Alphatest" )
-	language.Add( "tool.advmat.alphatype.translucent", "Translucent" )
-	language.Add( "tool.advmat.alphatype.vertexalpha", "Vertexalpha" )
+	local alphas = {
+		{ 0, "None" },
+		{ 1, "Alphatest" },
+		{ 2, "Translucent" },
+		{ 3, "Vertexalpha" },
+	}
+
+	assembleList( "tool.advmat.alphatype", "advmat_alphatype", alphas )
+
 	language.Add( "tool.advmat.alphatype.helptext", "Texture-level transparency, for windows, foliage, etc. If unsure, set to None, or AlphaTest." )
 
 
@@ -560,18 +586,7 @@ if CLIENT then
 
 	}
 
-	local preamble = "tool.advmat.stepoverride."
-
-	for _, currOverride in ipairs( stepOverrides ) do
-		local key = currOverride[1]
-		local placeholder = preamble .. key
-		local fullText = currOverride[2]
-		language.Add( placeholder, fullText )
-
-		local listKey = "#" .. preamble .. key
-		list.Set( "tool.advmat.stepoverride", listKey, { advmat_stepoverride = key } )
-
-	end
+	assembleList( "tool.advmat.stepoverride", "advmat_stepoverride", stepOverrides )
 
 	language.Add( "tool.advmat.stepoverride.helptext", "Overrides footstep sounds.\nAuto, footstep sounds are estimated from a material's noise, or texture.\nNone, don't override footstep sounds." )
 

@@ -1,14 +1,19 @@
 local string_find = string.find
+local math_random = math.random
+local istable = istable
 local IsValid = IsValid
 
 local entsMeta = FindMetaTable( "Entity" )
 local GetGroundEntity = entsMeta.GetGroundEntity
 
-local var = CreateClientConVar( "cl_advmat_overridefootsteps", "1", true, false, "Should player footsteps match the advanced material of the prop they're stepping on?" )
+
+local var = CreateClientConVar( "advmat_cl_overridefootsteps", "1", true, false, "Should player footsteps match the advanced material of the prop they're stepping on?" )
 local enabledBool = var:GetBool()
-cvars.AddChangeCallback( "cl_advmat_overridefootsteps", function( _, _, new )
+cvars.AddChangeCallback( "advmat_cl_overridefootsteps", function( _, _, new )
     enabledBool = tobool( new )
 end, "advmat_cachebool" )
+
+local cachedNames = {}
 
 -- footstep overrides
 local stepOverrides = {
@@ -105,8 +110,9 @@ end )
 
 local infLoop
 
-hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, pos, foot, _, volume, filter )
+hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, _, foot, _, volume, _ )
     if not enabledBool then return end
+    if not GetGlobalBool( "advmat_sv_overridefootsteps", false ) then return end
     if infLoop then return end
 
     local data = getGroundEntMatData( ply )
@@ -162,7 +168,19 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, pos, foot, _, vol
 
     end
 
-    ply:EmitSound( theSound, 65, 100, volume, CHAN_STATIC, SND_CHANGE_VOL, 0, filter )
+    -- shenanigans
+    -- needed because the alternative, EmitSound(ing) the raw sound property, needed the "change volume" soundflag, which didn't play sounds on some steps, for seemingly no reason
+    local realPath = cachedNames[theSound]
+    if not realPath then
+        realPath = sound.GetProperties( theSound ).sound
+        cachedNames[theSound] = realPath
+    end
+
+    if istable( realPath ) then
+        realPath = realPath[math_random( 1, #realPath )]
+    end
+
+    ply:EmitSound( realPath, 65, 100, volume, CHAN_BODY )
 
     return true
 end )

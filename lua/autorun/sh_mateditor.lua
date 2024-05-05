@@ -5,6 +5,12 @@ if SERVER then
 	util.AddNetworkString( "AdvMatSync" )
 end
 
+local enabledVar = CreateConVar( "advmat_sv_overridefootsteps", "1", { FCVAR_ARCHIVE }, "Enables/disables the advmat clientside footstep sound system." )
+SetGlobalBool( "advmat_sv_overridefootsteps", enabledVar:GetBool() )
+cvars.AddChangeCallback( "advmat_sv_overridefootsteps", function( _, _, new )
+	SetGlobalBool( "advmat_sv_overridefootsteps", tobool( new ) )
+end, "advmat_cachebool" )
+
 local IsValid = IsValid
 
 advMat_Table = advMat_Table or {}
