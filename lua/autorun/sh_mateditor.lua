@@ -5,6 +5,8 @@ if SERVER then
 	util.AddNetworkString( "AdvMatSync" )
 end
 
+local IsValid = IsValid
+
 advMat_Table = advMat_Table or {}
 
 advMat_Table.DetailTranslations = {
@@ -19,6 +21,7 @@ advMat_Table.DetailTranslations = {
 advMat_Table.stored = advMat_Table.stored or {}
 
 function advMat_Table:ResetAdvMaterial( ent )
+	if not IsValid( ent ) then return end
 	if ent.MaterialData then
 		ent.MaterialData = nil
 	end
