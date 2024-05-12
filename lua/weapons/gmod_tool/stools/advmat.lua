@@ -10,6 +10,7 @@ TOOL.ClientConVar["scaley"] = "1"
 TOOL.ClientConVar["offsetx"] = "0"
 TOOL.ClientConVar["offsety"] = "0"
 TOOL.ClientConVar["roffset"] = "0"
+TOOL.ClientConVar["usebump"] = "1"
 TOOL.ClientConVar["usenoise"] = "0"
 TOOL.ClientConVar["noisescalex"] = "1"
 TOOL.ClientConVar["noisescaley"] = "1"
@@ -54,6 +55,7 @@ function TOOL:LeftClick( trace )
 	local offsetx = tonumber( self:GetClientInfo( "offsetx" ) )
 	local offsety = tonumber( self:GetClientInfo( "offsety" ) )
 	local roffset = tonumber( self:GetClientInfo( "roffset" ) )
+	local usebump = tonumber( self:GetClientInfo( "usebump" ) )
 	local usenoise = tonumber( self:GetClientInfo( "usenoise" ) )
 	local noisesetting = self:GetClientInfo( "noisesetting" ) or "concrete"
 	local stepoverride = self:GetClientInfo( "stepoverride" ) or "auto"
@@ -73,6 +75,7 @@ function TOOL:LeftClick( trace )
 			OffsetX = offsetx,
 			OffsetY = offsety,
 			ROffset = roffset,
+			UseBump = usebump,
 			UseNoise = usenoise,
 			NoiseSetting = noisesetting,
 			StepOverride = stepoverride,
@@ -138,10 +141,9 @@ function TOOL:RightClick( trace )
 	-- copy existing advmat
 	if matData then
 		local untranslatedNoise = matData.NoiseSetting
-
 		data = matData
 
-		-- translate the raw texture into what the commands expect, eg 'metal', 'concrete'
+		-- translate the raw texture into what the commands expect, eg 'me`tal', 'concrete'
 		for setting, translation in pairs( advMat_Table.DetailTranslations ) do
 			if translation == untranslatedNoise then
 				data.noisesetting = setting
@@ -163,6 +165,8 @@ function TOOL:RightClick( trace )
 			end
 		end
 
+		local hasBump = isstring( tempMat:GetString( "$bumpmap" ) ) and not tempMat:GetTexture( "$bumpmap" ):IsErrorTexture()
+
 		data = {
 			texture = matString,
 			scalex = 1,
@@ -170,6 +174,7 @@ function TOOL:RightClick( trace )
 			offsetx = 0,
 			offsety = 0,
 			roffset = 0,
+			usebump = hasBump,
 			usenoise = usenoise,
 			noisesetting = noiseSetting,
 			stepoverride = "auto",
@@ -202,14 +207,18 @@ function TOOL:PreviewMatShader()
 	return shaderName
 end
 
-function TOOL:GetPreviewMat( shaderName, usenoise, alphatype )
+function TOOL:GetPreviewMat( shaderName, usenoise, alphatype, usebump )
 	usenoise = usenoise or self:GetClientNumber( "usenoise" )
 	alphatype = alphatype or self:GetClientNumber( "alphatype" )
+	usebump = usebump or self:GetClientNumber( "usebump" )
 
 	local matName = shaderName or self:PreviewMatShader()
 	matName = "AdvMatPreview" .. matName
 	if usenoise > 0 then
 		matName = matName .. "Noise"
+	end
+	if usebump > 0 then
+		matName = matName .. "Bumpmap"
 	end
 	matName = matName .. "Alpha" .. tostring( alphatype )
 
@@ -237,6 +246,7 @@ function TOOL:Think()
 		local offsety = self:GetClientNumber( "offsety" )
 		local roffset = self:GetClientNumber( "roffset" )
 
+		local usebump = self:GetClientNumber( "usebump" )
 		local usenoise = self:GetClientNumber( "usenoise" )
 		local noisesetting = self:GetClientInfo( "noisesetting" )
 		local noisescalex = self:GetClientNumber( "noisescalex", 1 )
@@ -249,7 +259,7 @@ function TOOL:Think()
 
 		local shaderName = self:PreviewMatShader()
 
-		local mat, matName = self:GetPreviewMat( shaderName, usenoise, alphatype )
+		local mat, matName = self:GetPreviewMat( shaderName, usenoise, alphatype, usebump )
 		if not mat then
 			local previewMatTable = {}
 
@@ -265,6 +275,40 @@ function TOOL:Think()
 			self.PreviewMats[matName] = mat
 		end
 
+
+		local iMat = translatorCache[texture]
+		-- only try to fill the cache once
+		if not iMat and not translatorCache[texture] then
+			iMat = Material( texture )
+			translatorCache[texture] = iMat or true
+		end
+
+		if not iMat then return end
+
+
+		local baseTex = iMat:GetTexture( "$basetexture" )
+		local baseTexName = baseTex:GetName()
+
+		if mat:GetString( "$basetexture" ) ~= baseTexName and baseTex then
+			mat:SetTexture( "$basetexture", baseTex )
+
+			local bumpTex = iMat:GetTexture( "$bumpmap" )
+			if usebump > 0 and not bumpTex:IsErrorTexture() then
+				print( bumpTex )
+				mat:SetTexture( "$bumpmap", bumpTex )
+			elseif mat:GetString( "$bumpmap" ) then
+				mat:SetUndefined( "$bumpmap" )
+				mat:Recompute()
+			end
+		end
+
+
+		local baseTexMatrix = Matrix()
+		baseTexMatrix:Scale( Vector( 1 / scalex, 1 / scaley, 1 ) )
+		baseTexMatrix:Translate( Vector( offsetx, offsety, 0 ) )
+		baseTexMatrix:Rotate( Angle( 0, roffset, 0 ) )
+		mat:SetMatrix( "$basetexturetransform", baseTexMatrix )
+		mat:SetMatrix( "$bumptransform", baseTexMatrix )
 
 		if usenoise > 0 then
 			local desiredDetail = advMat_Table.DetailTranslations[ noisesetting ]
@@ -285,29 +329,6 @@ function TOOL:Think()
 			mat:SetUndefined( "$detail" )
 			mat:SetUndefined( "$detailtexturetransform" )
 		end
-
-		local matrix = Matrix()
-		matrix:Scale( Vector( 1 / scalex, 1 / scaley, 1 ) )
-		matrix:Translate( Vector( offsetx, offsety, 0 ) )
-		matrix:Rotate( Angle( 0, roffset, 0 ) )
-
-		local iMat = translatorCache[texture]
-		-- only try to fill the cache once
-		if not iMat and not translatorCache[texture] then
-			iMat = Material( texture )
-			translatorCache[texture] = iMat or true
-		end
-
-		if iMat then
-			local baseTex = iMat:GetTexture( "$basetexture" )
-			local baseTexName = baseTex:GetName()
-
-			if mat:GetString( "$basetexture" ) ~= baseTexName and baseTex then
-				mat:SetTexture( "$basetexture", baseTex )
-			end
-		end
-
-		mat:SetMatrix( "$basetexturetransform", matrix )
 	end
 end
 
@@ -426,6 +447,9 @@ do
 			end
 		end
 
+		CPanel:CheckBox( "#tool.advmat.usebump", "advmat_usebump" )
+		CPanel:ControlHelp( "#tool.advmat.usebump.helptext" )
+
 		CPanel:CheckBox( "#tool.advmat.usenoise", "advmat_usenoise" )
 		CPanel:ControlHelp( "#tool.advmat.usenoise.helptext" )
 
@@ -498,6 +522,9 @@ if CLIENT then
 	language.Add( "tool.advmat.offsetx", "Horizontal Translation" )
 	language.Add( "tool.advmat.offsety", "Vertical Translation" )
 	language.Add( "tool.advmat.roffset", "Rotation" )
+
+	language.Add( "tool.advmat.usebump", "Use bumpmap" )
+	language.Add( "tool.advmat.usebump.helptext", "If a texture has a bump/normalmap, use it?" )
 
 	language.Add( "tool.advmat.usenoise", "Use noise texture" )
 	language.Add( "tool.advmat.usenoise.helptext", "If this box is checked, your material will be sharpened using an HD detail texture, controlled by the settings below." )

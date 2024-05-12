@@ -68,6 +68,7 @@ function advMat_Table:ValidateAdvmatData( data )
 		OffsetX = data.OffsetX or 0,
 		OffsetY = data.OffsetY or 0,
 		ROffset = data.ROffset or data.Rotate or 0, -- data.Rotate, catch advmat 2 rotation
+		UseBump = data.UseBump or 1,
 		UseNoise = useNoise or 0,
 		NoiseSetting = noiseSetting or "",
 		StepOverride = data.StepOverride or "auto",
@@ -86,10 +87,14 @@ function advMat_Table:GetMaterialPathId( data )
 	local dataValid = self:ValidateAdvmatData( data )
 
 	local texture = string.Trim( dataValid.texture )
-	local uid = texture .. "+" .. dataValid.ScaleX .. "+" .. dataValid.ScaleY .. "+" .. dataValid.OffsetX .. "+" .. data.OffsetY .. "+" .. dataValid.ROffset .. "+" .. dataValid.AlphaType
+	local uid = texture .. "+" .. dataValid.ScaleX .. "+" .. dataValid.ScaleY .. "+" .. dataValid.OffsetX .. "+" .. dataValid.OffsetY .. "+" .. dataValid.ROffset .. "+" .. dataValid.AlphaType
 
 	if dataValid.UseNoise > 0 then
-		uid = uid .. dataValid.NoiseSetting .. "+" .. dataValid.NoiseScaleX .. "+" .. dataValid.NoiseScaleY .. "+" .. dataValid.NoiseOffsetX .. "+" .. dataValid.NoiseOffsetY .. "+" .. dataValid.NoiseROffset
+		uid = uid .. "+" .. dataValid.NoiseSetting .. "+" .. dataValid.NoiseScaleX .. "+" .. dataValid.NoiseScaleY .. "+" .. dataValid.NoiseOffsetX .. "+" .. dataValid.NoiseOffsetY .. "+" .. dataValid.NoiseROffset
+	end
+
+	if dataValid.UseBump > 0 then
+		uid = uid .. "+" .. dataValid.UseBump
 	end
 
 	uid = uid:gsub( "%.", "-" )
@@ -146,7 +151,6 @@ function advMat_Table:Set( ent, texture, data )
 
 			local matTable = {
 				["$basetexture"] = tempMat:GetName(),
-				["$basetexturetransform"] = "center .5 .5 scale " .. ( 1 / dataV.ScaleX ) .. " " .. ( 1 / dataV.ScaleY ) .. " rotate " .. dataV.ROffset .. " translate " .. dataV.OffsetX .. " " .. dataV.OffsetY,
 				["$vertexcolor"] = 1
 			}
 
@@ -167,11 +171,6 @@ function advMat_Table:Set( ent, texture, data )
 				matTable["$detail"] = advMat_Table.DetailTranslations[dataV.NoiseSetting]
 			end
 
-			if ( file.Exists( "materials/" .. texture .. "_normal.vtf", "GAME" ) ) then
-				matTable["$bumpmap"] = texture .. "_normal"
-				matTable["$bumptransform"] = "center .5 .5 scale " .. ( 1 / dataV.ScaleX ) .. " " .. ( 1 / dataV.ScaleY ) .. " rotate " .. dataV.NoiseROffset .. " translate " .. dataV.OffsetX .. " " .. dataV.OffsetY
-			end
-
 			local matrix = Matrix()
 			matrix:Scale( Vector( 1 / dataV.ScaleX, 1 / dataV.ScaleY, 1 ) )
 			matrix:Translate( Vector( dataV.OffsetX, dataV.OffsetY, 0 ) )
@@ -186,6 +185,14 @@ function advMat_Table:Set( ent, texture, data )
 			self.stored[uid]:SetTexture( "$basetexture", iTexture )
 			self.stored[uid]:SetMatrix( "$basetexturetransform", matrix )
 			self.stored[uid]:SetMatrix( "$detailtexturetransform", noiseMatrix )
+
+			local bumpTex = tempMat:GetTexture( "$bumpmap" )
+			if bumpTex and dataV.UseBump > 0 then
+				self.stored[uid]:SetTexture( "$bumpmap", bumpTex )
+				self.stored[uid]:SetMatrix( "$bumptransform", matrix )
+			else
+				self.stored[uid]:SetUndefined( "$bumpmap" )
+			end
 		end
 
 		ent.MaterialData = dataV
