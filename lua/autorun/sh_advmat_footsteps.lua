@@ -1,3 +1,13 @@
+-- best code ever written!
+-- PlayerFootstep does not exist on client, in singleplayer!
+local singlePlayer = game.SinglePlayer()
+
+if singlePlayer then
+    if not SERVER then return end
+else
+    if not CLIENT then return end
+end
+
 local string_find = string.find
 local math_random = math.random
 local istable = istable
@@ -5,6 +15,7 @@ local IsValid = IsValid
 
 local entsMeta = FindMetaTable( "Entity" )
 local GetGroundEntity = entsMeta.GetGroundEntity
+local GetGlobalBool = GetGlobalBool
 
 
 local var = CreateClientConVar( "advmat_cl_overridefootsteps", "1", true, false, "Should player footsteps match the advanced material of the prop they're stepping on?" )
@@ -76,13 +87,13 @@ local function getGroundEntMatData( ply )
     -- this will never work for other players
     -- other players dont have ground ents on client
     -- thankfully if they're on props they don't play step sounds by default, so this mirrors base behaviour
-    if ply ~= LocalPlayer() then return end
+    if CLIENT and ply ~= LocalPlayer() then return end
 
     local groundEnt = GetGroundEntity( ply )
     local wasGrace
 
     if not IsValid( groundEnt ) then
-        -- jumping.....
+        -- jumping hacks.....
         if not oldGroundEnt then return end
         groundEnt = oldGroundEnt
         oldGroundEnt = nil
@@ -101,7 +112,7 @@ local function getGroundEntMatData( ply )
     return data
 end
 
--- more jumping....
+-- jumping hack
 hook.Add( "OnPlayerHitGround", "advmat_footsteps", function( ply )
     if not enabledBool then return end
     getGroundEntMatData( ply )
@@ -129,12 +140,10 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, _, foot, _, volum
             theSound = stepOverrides[override]
         end
     end
-    if not theSound and data.UseNoise >= 1 and data.NoiseSetting then
-        theSound = noiseSounds[ data.NoiseSetting ]
 
-    end
+    -- find sound from texture?
     if not theSound and texture then
-        -- found no sound
+        -- we already checked, no sound
         if data.NoFallbackFootstepSound then return end
         -- find footstep from the material's texture, then cache it in the ent's MaterialData, this way stepsound is wiped for new materials
         local cachedSound = data.CachedFootstepSound
@@ -150,9 +159,16 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, _, foot, _, volum
                 end
             end
             if not theSound then
+                -- no sound
                 data.NoFallbackFootstepSound = true
             end
         end
+    end
+
+    -- okay find sound from the noise texture?
+    if not theSound and data.UseNoise >= 1 and data.NoiseSetting then
+        theSound = noiseSounds[ data.NoiseSetting ]
+
     end
 
     if not theSound then return end

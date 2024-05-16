@@ -294,7 +294,6 @@ function TOOL:Think()
 
 			local bumpTex = iMat:GetTexture( "$bumpmap" )
 			if usebump > 0 and not bumpTex:IsErrorTexture() then
-				print( bumpTex )
 				mat:SetTexture( "$bumpmap", bumpTex )
 			elseif mat:GetString( "$bumpmap" ) then
 				mat:SetUndefined( "$bumpmap" )
@@ -615,6 +614,6 @@ if CLIENT then
 
 	assembleList( "tool.advmat.stepoverride", "advmat_stepoverride", stepOverrides )
 
-	language.Add( "tool.advmat.stepoverride.helptext", "Overrides footstep sounds.\nAuto, footstep sounds are estimated from a material's noise, or texture.\nNone, don't override footstep sounds." )
+	language.Add( "tool.advmat.stepoverride.helptext", "Overrides footstep sounds.\nAuto, footstep sounds are estimated from the material's texture, or from the detail texture.\nNone, don't override footstep sounds." )
 
 end
