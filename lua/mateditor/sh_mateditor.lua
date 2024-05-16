@@ -13,8 +13,6 @@ end, "advmat_cachebool" )
 
 local IsValid = IsValid
 
-advMat_Table = advMat_Table or {}
-
 advMat_Table.DetailTranslations = {
 	concrete = "detail/noise_detail_01",
 	plaster = "detail/plaster_detail_01",

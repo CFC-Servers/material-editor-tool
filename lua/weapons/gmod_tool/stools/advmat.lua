@@ -496,11 +496,10 @@ end
 
 if CLIENT then
 
-	local function assembleList( preamble, command, table )
-		for _, currOverride in ipairs( table ) do
-			local key = currOverride[1]
+	local function assembleList( preamble, command, stuff )
+		for key, currOverride in pairs( stuff ) do
 			local placeholder = preamble .. "." .. key
-			local fullText = currOverride[2]
+			local fullText = currOverride[1]
 			language.Add( placeholder, fullText )
 
 			local listKey = "#" .. preamble .. "." .. key
@@ -553,10 +552,10 @@ if CLIENT then
 	language.Add( "tool.advmat.alphatype", "Alpha Type" )
 
 	local alphas = {
-		{ 0, "None" },
-		{ 1, "Alphatest" },
-		{ 2, "Translucent" },
-		{ 3, "Vertexalpha" },
+		[0] = { "None" },
+		[1] = { "Alphatest" },
+		[2] = { "Translucent" },
+		[3] = { "Vertexalpha" },
 	}
 
 	assembleList( "tool.advmat.alphatype", "advmat_alphatype", alphas )
@@ -566,53 +565,7 @@ if CLIENT then
 
 	language.Add( "tool.advmat.stepoverride", "Advanced footstep sounds." )
 
-	local stepOverrides = {
-		{ "none", "None" },
-		{ "auto", "Auto", },
-		{ "metal", "Metal" },
-		{ "metalbox", "Metal Box" },
-		{ "vent", "Vent" },
-		{ "grate", "Grate" },
-		{ "ladder", "Ladder" },
-		{ "weapon", "Weapon" },
-		{ "grenade", "Grenade" },
-		{ "chainlink", "Chain Link" },
-
-		{ "snow", "Snow" },
-		{ "dirt", "Dirt" },
-		{ "sand", "Sand" },
-		{ "grass", "Grass" },
-		{ "gravel", "Gravel" },
-
-		{ "mud", "Mud" },
-		{ "slime", "Slime" },
-
-		{ "water", "Water" },
-		{ "wade", "Water ( Wade )" },
-
-		{ "flesh", "Flesh" },
-		{ "fleshsquish", "Flesh ( Squishy )" },
-
-		{ "concrete", "Concrete" },
-		{ "tile", "Tile" },
-		{ "glass", "Glass" },
-		{ "drywall", "Drywall" },
-		{ "celingtile", "Ceiling Tile" },
-		{ "glassbottle", "Glass Bottle" },
-
-		{ "rubber", "Rubber" },
-		{ "cardboard", "Cardboard" },
-		{ "plasticbox", "Plastic Box" },
-		{ "plasticbarrel", "Plastic Barrel" },
-
-		{ "wood", "Wood" },
-		{ "woodbox", "Wood Box" },
-		{ "woodcrate", "Wood Crate" },
-		{ "woodpanel", "Wood Panel" },
-
-	}
-
-	assembleList( "tool.advmat.stepoverride", "advmat_stepoverride", stepOverrides )
+	assembleList( "tool.advmat.stepoverride", "advmat_stepoverride", advMat_Table.stepOverrides )
 
 	language.Add( "tool.advmat.stepoverride.helptext", "Overrides footstep sounds.\nAuto, footstep sounds are estimated from the material's texture, or from the detail texture.\nNone, don't override footstep sounds." )
 

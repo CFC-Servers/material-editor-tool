@@ -1,3 +1,50 @@
+advMat_Table.stepOverrides = {
+    none = { "None" },
+    auto = { "Auto" },
+    metal = { "Metal", "SolidMetal.Step" },
+    metalbox = { "Metal Box", "Metal_Box.Step" },
+    vent = { "Vent", "MetalVent.Step" },
+    grate = { "Grate", "MetalGrate.Step" },
+    ladder = { "Ladder", "Ladder.Step" },
+    weapon = { "Weapon", "weapon.Step" },
+    grenade = { "Grenade", "Grenade.Step" },
+    chainlink = { "Chain Link", "ChainLink.Step" },
+
+    snow = { "Snow", "Snow.Step" },
+    dirt = { "Dirt", "Dirt.Step" },
+    sand = { "Sand", "Sand.Step" },
+    grass = { "Grass", "Grass.Step" },
+    gravel = { "Gravel", "Gravel.Step" },
+
+    mud = { "Mud", "Mud.Step" },
+    slime = { "Slime", "SlipperySlime.Step" },
+
+    water = { "Water", "Water.Step" },
+    wade = { "Water ( Wade )", "Wade.Step" },
+
+    flesh = { "Flesh", "Flesh.Step" },
+    -- funny one
+    fleshsquish = { "Flesh ( Squishy )", "Flesh_Bloody.ImpactHard" },
+
+    concrete = { "Concrete", "Concrete.Step" },
+    tile = { "Tile", "Tile.Step" },
+    glass = { "Glass", "Glass.Step" },
+    drywall = { "Drywall", "drywall.Step" },
+    celingtile = { "Ceiling Tile", "ceiling_tile.Step" },
+    glassbottle = { "Glass Bottle", "GlassBottle.Step" },
+
+    rubber = { "Rubber", "Rubber.Step" },
+    cardboard = { "Cardboard", "Cardboard.Step" },
+    plasticbox = { "Plastic Box", "Plastic_Box.Step" },
+    plasticbarrel = { "Plastic Barrel", "Plastic_Barrel.Step" },
+
+    wood = { "Wood", "Wood.Step" },
+    woodbox = { "Wood Box", "Wood_Box.Step", },
+    woodcrate = { "Wood Crate", "Wood_Crate.Step" },
+    woodpanel = { "Wood Panel", "Wood_Panel.Step" },
+
+}
+
 -- best code ever written!
 -- PlayerFootstep does not exist on client, in singleplayer!
 local singlePlayer = game.SinglePlayer()
@@ -25,52 +72,6 @@ cvars.AddChangeCallback( "advmat_cl_overridefootsteps", function( _, _, new )
 end, "advmat_cachebool" )
 
 local cachedNames = {}
-
--- footstep overrides
-local stepOverrides = {
-    none = nil,
-    metal = "SolidMetal.Step",
-    metalbox = "Metal_Box.Step",
-    vent = "MetalVent.Step",
-    grate = "MetalGrate.Step",
-    ladder = "Ladder.Step",
-    weapon = "weapon.Step",
-    grenade = "Grenade.Step",
-    chainlink = "ChainLink.Step",
-
-    snow = "Snow.Step",
-    dirt = "Dirt.Step",
-    sand = "Sand.Step",
-    grass = "Grass.Step",
-    gravel = "Gravel.Step",
-
-    mud = "Mud.Step",
-    slime = "SlipperySlime.Step",
-
-    water = "Water.Step",
-    wade = "Wade.Step",
-
-    flesh = "Flesh.Step",
-    -- funny one
-    fleshsquish = "Flesh_Bloody.ImpactHard",
-
-    concrete = "Concrete.Step",
-    tile = "Tile.Step",
-    glass = "Glass.Step",
-    drywall = "drywall.Step",
-    celingtile = "ceiling_tile.Step",
-    glassbottle = "GlassBottle.Step",
-
-    rubber = "Rubber.Step",
-    cardboard = "Cardboard.Step",
-    plasticbox = "Plastic_Box.Step",
-    plasticbarrel = "Plastic_Barrel.Step",
-
-    wood = "Wood.Step",
-    woodbox = "Wood_Box.Step",
-    woodcrate = "Wood_Crate.Step",
-    woodpanel = "Wood_Panel.Step",
-}
 
 -- backup sounds, using noise textures
 local noiseSounds = {
@@ -137,7 +138,7 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, _, foot, _, volum
     if override then
         if override == "none" then return end
         if override ~= "auto" then
-            theSound = stepOverrides[override]
+            theSound = advMat_Table.stepOverrides[override][2]
         end
     end
 
@@ -150,9 +151,9 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, _, foot, _, volum
         if cachedSound then
             theSound = cachedSound
         else
-            for needle, currOverride in pairs( stepOverrides ) do
+            for needle, currOverride in pairs( advMat_Table.stepOverrides ) do
                 if string_find( texture, needle ) then
-                    theSound = currOverride
+                    theSound = currOverride[2]
                     data.CachedFootstepSound = theSound
                     break
 
