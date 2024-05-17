@@ -25,7 +25,6 @@ advMat_Table.DetailTranslations = {
 advMat_Table.stored = advMat_Table.stored or {}
 
 function advMat_Table:ResetAdvMaterial( ent )
-	if not IsValid( ent ) then return end
 	if ent.MaterialData then
 		ent.MaterialData = nil
 	end
@@ -212,6 +211,7 @@ if CLIENT then
 
 	net.Receive( "AdvMatDematerialize", function()
 		local ent = net.ReadEntity()
+		if not IsValid( ent ) then return end
 		advMat_Table:ResetAdvMaterial( ent )
 	end )
 

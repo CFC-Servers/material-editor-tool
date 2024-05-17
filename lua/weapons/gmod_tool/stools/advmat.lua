@@ -143,7 +143,7 @@ function TOOL:RightClick( trace )
 		local untranslatedNoise = matData.NoiseSetting
 		data = matData
 
-		-- translate the raw texture into what the commands expect, eg 'me`tal', 'concrete'
+		-- translate the raw texture into what the commands expect, eg 'metal', 'concrete'
 		for setting, translation in pairs( advMat_Table.DetailTranslations ) do
 			if translation == untranslatedNoise then
 				data.noisesetting = setting
@@ -499,7 +499,7 @@ if CLIENT then
 	local function assembleList( preamble, command, stuff )
 		for key, currOverride in pairs( stuff ) do
 			local placeholder = preamble .. "." .. key
-			local fullText = currOverride[1]
+			local fullText = currOverride.name
 			language.Add( placeholder, fullText )
 
 			local listKey = "#" .. preamble .. "." .. key
@@ -552,10 +552,10 @@ if CLIENT then
 	language.Add( "tool.advmat.alphatype", "Alpha Type" )
 
 	local alphas = {
-		[0] = { "None" },
-		[1] = { "Alphatest" },
-		[2] = { "Translucent" },
-		[3] = { "Vertexalpha" },
+		[0] = { name = "None" },
+		[1] = { name = "Alphatest" },
+		[2] = { name = "Translucent" },
+		[3] = { name = "Vertexalpha" },
 	}
 
 	assembleList( "tool.advmat.alphatype", "advmat_alphatype", alphas )

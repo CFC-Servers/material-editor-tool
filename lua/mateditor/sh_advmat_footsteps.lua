@@ -1,47 +1,48 @@
+-- also used by language.add stuff in stools/advmat.lua
 advMat_Table.stepOverrides = {
-    none = { "None" },
-    auto = { "Auto" },
-    metal = { "Metal", "SolidMetal.Step" },
-    metalbox = { "Metal Box", "Metal_Box.Step" },
-    vent = { "Vent", "MetalVent.Step" },
-    grate = { "Grate", "MetalGrate.Step" },
-    ladder = { "Ladder", "Ladder.Step" },
-    weapon = { "Weapon", "weapon.Step" },
-    grenade = { "Grenade", "Grenade.Step" },
-    chainlink = { "Chain Link", "ChainLink.Step" },
+    none = { name = "None" },
+    auto = { name = "Auto" },
+    metal = { name = "Metal", snd = "SolidMetal.Step" },
+    metalbox = { name = "Metal Box", snd = "Metal_Box.Step" },
+    vent = { name = "Vent", snd = "MetalVent.Step" },
+    grate = { name = "Grate", snd = "MetalGrate.Step" },
+    ladder = { name = "Ladder", snd = "Ladder.Step" },
+    weapon = { name = "Weapon", snd = "weapon.Step" },
+    grenade = { name = "Grenade", snd = "Grenade.Step" },
+    chainlink = { name = "Chain Link", snd = "ChainLink.Step" },
 
-    snow = { "Snow", "Snow.Step" },
-    dirt = { "Dirt", "Dirt.Step" },
-    sand = { "Sand", "Sand.Step" },
-    grass = { "Grass", "Grass.Step" },
-    gravel = { "Gravel", "Gravel.Step" },
+    snow = { name = "Snow", snd = "Snow.Step" },
+    dirt = { name = "Dirt", snd = "Dirt.Step" },
+    sand = { name = "Sand", snd = "Sand.Step" },
+    grass = { name = "Grass", snd = "Grass.Step" },
+    gravel = { name = "Gravel", snd = "Gravel.Step" },
 
-    mud = { "Mud", "Mud.Step" },
-    slime = { "Slime", "SlipperySlime.Step" },
+    mud = { name = "Mud", snd = "Mud.Step" },
+    slime = { name = "Slime", snd = "SlipperySlime.Step" },
 
-    water = { "Water", "Water.Step" },
-    wade = { "Water ( Wade )", "Wade.Step" },
+    water = { name = "Water", snd = "Water.Step" },
+    wade = { name = "Water ( Wade )", snd = "Wade.Step" },
 
-    flesh = { "Flesh", "Flesh.Step" },
+    flesh = { name = "Flesh", snd = "Flesh.Step" },
     -- funny one
-    fleshsquish = { "Flesh ( Squishy )", "Flesh_Bloody.ImpactHard" },
+    fleshsquish = { name = "Flesh ( Squishy )", snd = "Flesh_Bloody.ImpactHard" },
 
-    concrete = { "Concrete", "Concrete.Step" },
-    tile = { "Tile", "Tile.Step" },
-    glass = { "Glass", "Glass.Step" },
-    drywall = { "Drywall", "drywall.Step" },
-    celingtile = { "Ceiling Tile", "ceiling_tile.Step" },
-    glassbottle = { "Glass Bottle", "GlassBottle.Step" },
+    concrete = { name = "Concrete", snd = "Concrete.Step" },
+    tile = { name = "Tile", snd = "Tile.Step" },
+    glass = { name = "Glass", snd = "Glass.Step" },
+    drywall = { name = "Drywall", snd = "drywall.Step" },
+    celingtile = { name = "Ceiling Tile", snd = "ceiling_tile.Step" },
+    glassbottle = { name = "Glass Bottle", snd = "GlassBottle.Step" },
 
-    rubber = { "Rubber", "Rubber.Step" },
-    cardboard = { "Cardboard", "Cardboard.Step" },
-    plasticbox = { "Plastic Box", "Plastic_Box.Step" },
-    plasticbarrel = { "Plastic Barrel", "Plastic_Barrel.Step" },
+    rubber = { name = "Rubber", snd = "Rubber.Step" },
+    cardboard = { name = "Cardboard", snd = "Cardboard.Step" },
+    plasticbox = { name = "Plastic Box", snd = "Plastic_Box.Step" },
+    plasticbarrel = { name = "Plastic Barrel", snd = "Plastic_Barrel.Step" },
 
-    wood = { "Wood", "Wood.Step" },
-    woodbox = { "Wood Box", "Wood_Box.Step", },
-    woodcrate = { "Wood Crate", "Wood_Crate.Step" },
-    woodpanel = { "Wood Panel", "Wood_Panel.Step" },
+    wood = { name = "Wood", snd = "Wood.Step" },
+    woodbox = { name = "Wood Box", snd = "Wood_Box.Step", },
+    woodcrate = { name = "Wood Crate", snd = "Wood_Crate.Step" },
+    woodpanel = { name = "Wood Panel", snd = "Wood_Panel.Step" },
 
 }
 
@@ -138,7 +139,7 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, _, foot, _, volum
     if override then
         if override == "none" then return end
         if override ~= "auto" then
-            theSound = advMat_Table.stepOverrides[override][2]
+            theSound = advMat_Table.stepOverrides[override].snd
         end
     end
 
@@ -153,7 +154,7 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, _, foot, _, volum
         else
             for needle, currOverride in pairs( advMat_Table.stepOverrides ) do
                 if string_find( texture, needle ) then
-                    theSound = currOverride[2]
+                    theSound = currOverride.snd
                     data.CachedFootstepSound = theSound
                     break
 
