@@ -487,7 +487,6 @@ do
 			Options = list.Get( "tool.advmat.stepoverride" )
 		} )
 		CPanel:ControlHelp( "#tool.advmat.stepoverride.helptext" )
-
 	end
 end
 /*
@@ -504,7 +503,6 @@ if CLIENT then
 
 			local listKey = "#" .. preamble .. "." .. key
 			list.Set( preamble, listKey, { [command] = key } )
-
 		end
 	end
 
@@ -568,5 +566,4 @@ if CLIENT then
 	assembleList( "tool.advmat.stepoverride", "advmat_stepoverride", advMat_Table.stepOverrides )
 
 	language.Add( "tool.advmat.stepoverride.helptext", "Overrides footstep sounds.\nAuto, footstep sounds are estimated from the material's texture, or from the detail texture.\nNone, don't override footstep sounds." )
-
 end

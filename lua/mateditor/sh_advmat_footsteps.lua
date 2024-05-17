@@ -43,7 +43,6 @@ advMat_Table.stepOverrides = {
     woodbox = { name = "Wood Box", snd = "Wood_Box.Step", },
     woodcrate = { name = "Wood Crate", snd = "Wood_Crate.Step" },
     woodpanel = { name = "Wood Panel", snd = "Wood_Panel.Step" },
-
 }
 
 -- best code ever written!
@@ -60,6 +59,7 @@ local string_find = string.find
 local math_random = math.random
 local istable = istable
 local IsValid = IsValid
+local CLIENT = CLIENT
 
 local entsMeta = FindMetaTable( "Entity" )
 local GetGroundEntity = entsMeta.GetGroundEntity
@@ -100,7 +100,6 @@ local function getGroundEntMatData( ply )
         groundEnt = oldGroundEnt
         oldGroundEnt = nil
         wasGrace = true
-
     end
 
     local data = groundEnt.MaterialData
@@ -108,7 +107,6 @@ local function getGroundEntMatData( ply )
 
     if not wasGrace then
         oldGroundEnt = groundEnt
-
     end
 
     return data
@@ -157,7 +155,6 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, _, foot, _, volum
                     theSound = currOverride.snd
                     data.CachedFootstepSound = theSound
                     break
-
                 end
             end
             if not theSound then
@@ -170,7 +167,6 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, _, foot, _, volum
     -- okay find sound from the noise texture?
     if not theSound and data.UseNoise >= 1 and data.NoiseSetting then
         theSound = noiseSounds[ data.NoiseSetting ]
-
     end
 
     if not theSound then return end
@@ -183,7 +179,6 @@ hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, _, foot, _, volum
         end
 
         theSound = theSound .. footStr
-
     end
 
     -- shenanigans
