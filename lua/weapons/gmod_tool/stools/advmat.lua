@@ -4,11 +4,13 @@ TOOL.Category = "Render"
 TOOL.Name = "Advanced Material"
 TOOL.ClientConVar["texture"] = ""
 TOOL.ClientConVar["noisesetting"] = "concrete"
+TOOL.ClientConVar["stepoverride"] = "auto"
 TOOL.ClientConVar["scalex"] = "1"
 TOOL.ClientConVar["scaley"] = "1"
 TOOL.ClientConVar["offsetx"] = "0"
 TOOL.ClientConVar["offsety"] = "0"
 TOOL.ClientConVar["roffset"] = "0"
+TOOL.ClientConVar["usebump"] = "1"
 TOOL.ClientConVar["usenoise"] = "0"
 TOOL.ClientConVar["noisescalex"] = "1"
 TOOL.ClientConVar["noisescaley"] = "1"
@@ -53,8 +55,10 @@ function TOOL:LeftClick( trace )
 	local offsetx = tonumber( self:GetClientInfo( "offsetx" ) )
 	local offsety = tonumber( self:GetClientInfo( "offsety" ) )
 	local roffset = tonumber( self:GetClientInfo( "roffset" ) )
+	local usebump = tonumber( self:GetClientInfo( "usebump" ) )
 	local usenoise = tonumber( self:GetClientInfo( "usenoise" ) )
 	local noisesetting = self:GetClientInfo( "noisesetting" ) or "concrete"
+	local stepoverride = self:GetClientInfo( "stepoverride" ) or "auto"
 	local noisescalex = tonumber( self:GetClientInfo( "noisescalex" ) )
 	local noisescaley = tonumber( self:GetClientInfo( "noisescaley" ) )
 	local noiseoffsetx = tonumber( self:GetClientInfo( "noiseoffsetx" ) )
@@ -71,8 +75,10 @@ function TOOL:LeftClick( trace )
 			OffsetX = offsetx,
 			OffsetY = offsety,
 			ROffset = roffset,
+			UseBump = usebump,
 			UseNoise = usenoise,
 			NoiseSetting = noisesetting,
+			StepOverride = stepoverride,
 			NoiseScaleX = noisescalex,
 			NoiseScaleY = noisescaley,
 			NoiseOffsetX = noiseoffsetx,
@@ -135,7 +141,6 @@ function TOOL:RightClick( trace )
 	-- copy existing advmat
 	if matData then
 		local untranslatedNoise = matData.NoiseSetting
-
 		data = matData
 
 		-- translate the raw texture into what the commands expect, eg 'metal', 'concrete'
@@ -160,6 +165,8 @@ function TOOL:RightClick( trace )
 			end
 		end
 
+		local hasBump = isstring( tempMat:GetString( "$bumpmap" ) ) and not tempMat:GetTexture( "$bumpmap" ):IsErrorTexture()
+
 		data = {
 			texture = matString,
 			scalex = 1,
@@ -167,8 +174,10 @@ function TOOL:RightClick( trace )
 			offsetx = 0,
 			offsety = 0,
 			roffset = 0,
+			usebump = hasBump,
 			usenoise = usenoise,
-			noisesetting = noiseSetting
+			noisesetting = noiseSetting,
+			stepoverride = "auto",
 		}
 	else
 		return false
@@ -198,14 +207,18 @@ function TOOL:PreviewMatShader()
 	return shaderName
 end
 
-function TOOL:GetPreviewMat( shaderName, usenoise, alphatype )
+function TOOL:GetPreviewMat( shaderName, usenoise, alphatype, usebump )
 	usenoise = usenoise or self:GetClientNumber( "usenoise" )
 	alphatype = alphatype or self:GetClientNumber( "alphatype" )
+	usebump = usebump or self:GetClientNumber( "usebump" )
 
 	local matName = shaderName or self:PreviewMatShader()
 	matName = "AdvMatPreview" .. matName
 	if usenoise > 0 then
 		matName = matName .. "Noise"
+	end
+	if usebump > 0 then
+		matName = matName .. "Bumpmap"
 	end
 	matName = matName .. "Alpha" .. tostring( alphatype )
 
@@ -233,6 +246,7 @@ function TOOL:Think()
 		local offsety = self:GetClientNumber( "offsety" )
 		local roffset = self:GetClientNumber( "roffset" )
 
+		local usebump = self:GetClientNumber( "usebump" )
 		local usenoise = self:GetClientNumber( "usenoise" )
 		local noisesetting = self:GetClientInfo( "noisesetting" )
 		local noisescalex = self:GetClientNumber( "noisescalex", 1 )
@@ -245,7 +259,7 @@ function TOOL:Think()
 
 		local shaderName = self:PreviewMatShader()
 
-		local mat, matName = self:GetPreviewMat( shaderName, usenoise, alphatype )
+		local mat, matName = self:GetPreviewMat( shaderName, usenoise, alphatype, usebump )
 		if not mat then
 			local previewMatTable = {}
 
@@ -261,6 +275,39 @@ function TOOL:Think()
 			self.PreviewMats[matName] = mat
 		end
 
+
+		local iMat = translatorCache[texture]
+		-- only try to fill the cache once
+		if not iMat and not translatorCache[texture] then
+			iMat = Material( texture )
+			translatorCache[texture] = iMat or true
+		end
+
+		if not iMat then return end
+
+
+		local baseTex = iMat:GetTexture( "$basetexture" )
+		local baseTexName = baseTex:GetName()
+
+		if mat:GetString( "$basetexture" ) ~= baseTexName and baseTex then
+			mat:SetTexture( "$basetexture", baseTex )
+
+			local bumpTex = iMat:GetTexture( "$bumpmap" )
+			if usebump > 0 and not bumpTex:IsErrorTexture() then
+				mat:SetTexture( "$bumpmap", bumpTex )
+			elseif mat:GetString( "$bumpmap" ) then
+				mat:SetUndefined( "$bumpmap" )
+				mat:Recompute()
+			end
+		end
+
+
+		local baseTexMatrix = Matrix()
+		baseTexMatrix:Scale( Vector( 1 / scalex, 1 / scaley, 1 ) )
+		baseTexMatrix:Translate( Vector( offsetx, offsety, 0 ) )
+		baseTexMatrix:Rotate( Angle( 0, roffset, 0 ) )
+		mat:SetMatrix( "$basetexturetransform", baseTexMatrix )
+		mat:SetMatrix( "$bumptransform", baseTexMatrix )
 
 		if usenoise > 0 then
 			local desiredDetail = advMat_Table.DetailTranslations[ noisesetting ]
@@ -281,29 +328,6 @@ function TOOL:Think()
 			mat:SetUndefined( "$detail" )
 			mat:SetUndefined( "$detailtexturetransform" )
 		end
-
-		local matrix = Matrix()
-		matrix:Scale( Vector( 1 / scalex, 1 / scaley, 1 ) )
-		matrix:Translate( Vector( offsetx, offsety, 0 ) )
-		matrix:Rotate( Angle( 0, roffset, 0 ) )
-
-		local iMat = translatorCache[texture]
-		-- only try to fill the cache once
-		if not iMat and not translatorCache[texture] then
-			iMat = Material( texture )
-			translatorCache[texture] = iMat or true
-		end
-
-		if iMat then
-			local baseTex = iMat:GetTexture( "$basetexture" )
-			local baseTexName = baseTex:GetName()
-
-			if mat:GetString( "$basetexture" ) ~= baseTexName and baseTex then
-				mat:SetTexture( "$basetexture", baseTex )
-			end
-		end
-
-		mat:SetMatrix( "$basetexturetransform", matrix )
 	end
 end
 
@@ -398,6 +422,7 @@ do
 				[10] = "advmat_noiseoffsety",
 				[11] = "advmat_noiseroffset",
 				[12] = "advmat_alphatype",
+				[13] = "advmat_stepoverride",
 			}
 		} )
 
@@ -421,6 +446,9 @@ do
 			end
 		end
 
+		CPanel:CheckBox( "#tool.advmat.usebump", "advmat_usebump" )
+		CPanel:ControlHelp( "#tool.advmat.usebump.helptext" )
+
 		CPanel:CheckBox( "#tool.advmat.usenoise", "advmat_usenoise" )
 		CPanel:ControlHelp( "#tool.advmat.usenoise.helptext" )
 
@@ -443,13 +471,22 @@ do
 			end
 		end
 
-		local alphabox = CPanel:ComboBox( "#tool.advmat.alphatype", "advmat_alphatype" )
-		alphabox:AddChoice( "#tool.advmat.alphatype.none", 0 )
-		alphabox:AddChoice( "#tool.advmat.alphatype.alphatest", 1 )
-		alphabox:AddChoice( "#tool.advmat.alphatype.vertexalpha", 2 )
-		alphabox:AddChoice( "#tool.advmat.alphatype.translucent", 3 )
+		CPanel:AddControl( "Label", {
+			Text = "#tool.advmat.advancedsettings"
+		} )
+
+		CPanel:AddControl( "ComboBox", {
+			Label = "#tool.advmat.alphatype",
+			Options = list.Get( "tool.advmat.alphatype" )
+		} )
 		CPanel:ControlHelp( "#tool.advmat.alphatype.helptext" )
 
+
+		CPanel:AddControl( "ComboBox", {
+			Label = "#tool.advmat.stepoverride",
+			Options = list.Get( "tool.advmat.stepoverride" )
+		} )
+		CPanel:ControlHelp( "#tool.advmat.stepoverride.helptext" )
 	end
 end
 /*
@@ -457,6 +494,18 @@ end
 */
 
 if CLIENT then
+
+	local function assembleList( preamble, command, stuff )
+		for key, currOverride in pairs( stuff ) do
+			local placeholder = preamble .. "." .. key
+			local fullText = currOverride.name
+			language.Add( placeholder, fullText )
+
+			local listKey = "#" .. preamble .. "." .. key
+			list.Set( preamble, listKey, { [command] = key } )
+		end
+	end
+
 	language.Add( "tool.advmat.name", "Advanced Material" )
 	language.Add( "tool.advmat.left", "Set material" )
 	language.Add( "tool.advmat.right", "Copy material" )
@@ -470,13 +519,17 @@ if CLIENT then
 	language.Add( "tool.advmat.offsety", "Vertical Translation" )
 	language.Add( "tool.advmat.roffset", "Rotation" )
 
+	language.Add( "tool.advmat.usebump", "Use bumpmap" )
+	language.Add( "tool.advmat.usebump.helptext", "If a texture has a bump/normalmap, use it?" )
+
 	language.Add( "tool.advmat.usenoise", "Use noise texture" )
 	language.Add( "tool.advmat.usenoise.helptext", "If this box is checked, your material will be sharpened using an HD detail texture, controlled by the settings below." )
 
-	language.Add( "tool.advmat.noisesetting", "Detail type" )
-
 	language.Add( "tool.advmat.reset.base", "Reset Texture Transformations" )
 	language.Add( "tool.advmat.reset.noise", "Reset Noise Transformations" )
+
+
+	language.Add( "tool.advmat.noisesetting", "Detail type" )
 
 	language.Add( "tool.advmat.details.concrete", "Concrete" )
 	language.Add( "tool.advmat.details.plaster", "Plaster" )
@@ -484,16 +537,33 @@ if CLIENT then
 	language.Add( "tool.advmat.details.wood", "Wood" )
 	language.Add( "tool.advmat.details.rock", "Rock" )
 
-	language.Add( "tool.advmat.alphatype", "Alpha Type" )
-	language.Add( "tool.advmat.alphatype.none", "None" )
-	language.Add( "tool.advmat.alphatype.alphatest", "Alphatest" )
-	language.Add( "tool.advmat.alphatype.translucent", "Translucent" )
-	language.Add( "tool.advmat.alphatype.vertexalpha", "Vertexalpha" )
-	language.Add( "tool.advmat.alphatype.helptext", "Texture-level transparency, for windows, foliage, etc. If unsure, set to None, or AlphaTest." )
-
 	list.Set( "tool.advmat.details", "#tool.advmat.details.concrete", { advmat_noisesetting = "concrete" } )
 	list.Set( "tool.advmat.details", "#tool.advmat.details.plaster", { advmat_noisesetting = "plaster" } )
 	list.Set( "tool.advmat.details", "#tool.advmat.details.metal", { advmat_noisesetting = "metal" } )
 	list.Set( "tool.advmat.details", "#tool.advmat.details.wood", { advmat_noisesetting = "wood" } )
 	list.Set( "tool.advmat.details", "#tool.advmat.details.rock", { advmat_noisesetting = "rock" } )
+
+
+	language.Add( "tool.advmat.advancedsettings", "Advanced Settings" )
+
+
+	language.Add( "tool.advmat.alphatype", "Alpha Type" )
+
+	local alphas = {
+		[0] = { name = "None" },
+		[1] = { name = "Alphatest" },
+		[2] = { name = "Translucent" },
+		[3] = { name = "Vertexalpha" },
+	}
+
+	assembleList( "tool.advmat.alphatype", "advmat_alphatype", alphas )
+
+	language.Add( "tool.advmat.alphatype.helptext", "Texture-level transparency, for windows, foliage, etc. If unsure, set to None, or AlphaTest." )
+
+
+	language.Add( "tool.advmat.stepoverride", "Advanced footstep sounds." )
+
+	assembleList( "tool.advmat.stepoverride", "advmat_stepoverride", advMat_Table.stepOverrides )
+
+	language.Add( "tool.advmat.stepoverride.helptext", "Overrides footstep sounds.\nAuto, footstep sounds are estimated from the material's texture, or from the detail texture.\nNone, don't override footstep sounds." )
 end

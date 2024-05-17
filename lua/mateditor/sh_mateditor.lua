@@ -1,10 +1,17 @@
 if SERVER then
-	util.AddNetworkString( "Materialize" )
+	util.AddNetworkString( "AdvMatMaterialize" )
+	util.AddNetworkString( "AdvMatDematerialize" )
 	util.AddNetworkString( "AdvMatInit" )
 	util.AddNetworkString( "AdvMatSync" )
 end
 
-advMat_Table = advMat_Table or {}
+local enabledVar = CreateConVar( "advmat_sv_overridefootsteps", "1", { FCVAR_ARCHIVE }, "Enables/disables the advmat clientside footstep sound system." )
+SetGlobalBool( "advmat_sv_overridefootsteps", enabledVar:GetBool() )
+cvars.AddChangeCallback( "advmat_sv_overridefootsteps", function( _, _, new )
+	SetGlobalBool( "advmat_sv_overridefootsteps", tobool( new ) )
+end, "advmat_cachebool" )
+
+local IsValid = IsValid
 
 advMat_Table.DetailTranslations = {
 	concrete = "detail/noise_detail_01",
@@ -58,8 +65,10 @@ function advMat_Table:ValidateAdvmatData( data )
 		OffsetX = data.OffsetX or 0,
 		OffsetY = data.OffsetY or 0,
 		ROffset = data.ROffset or data.Rotate or 0, -- data.Rotate, catch advmat 2 rotation
+		UseBump = data.UseBump or 1,
 		UseNoise = useNoise or 0,
 		NoiseSetting = noiseSetting or "",
+		StepOverride = data.StepOverride or "auto",
 		NoiseScaleX = data.NoiseScaleX or 1,
 		NoiseScaleY = data.NoiseScaleY or 1,
 		NoiseOffsetX = data.NoiseOffsetX or 0,
@@ -78,7 +87,11 @@ function advMat_Table:GetMaterialPathId( data )
 	local uid = texture .. "+" .. dataValid.ScaleX .. "+" .. dataValid.ScaleY .. "+" .. dataValid.OffsetX .. "+" .. dataValid.OffsetY .. "+" .. dataValid.ROffset .. "+" .. dataValid.AlphaType
 
 	if dataValid.UseNoise > 0 then
-		uid = uid .. dataValid.NoiseSetting .. "+" .. dataValid.NoiseScaleX .. "+" .. dataValid.NoiseScaleY .. "+" .. dataValid.NoiseOffsetX .. "+" .. dataValid.NoiseOffsetY .. "+" .. dataValid.NoiseROffset
+		uid = uid .. "+" .. dataValid.NoiseSetting .. "+" .. dataValid.NoiseScaleX .. "+" .. dataValid.NoiseScaleY .. "+" .. dataValid.NoiseOffsetX .. "+" .. dataValid.NoiseOffsetY .. "+" .. dataValid.NoiseROffset
+	end
+
+	if dataValid.UseBump > 0 then
+		uid = uid .. "+" .. dataValid.UseBump
 	end
 
 	uid = uid:gsub( "%.", "-" )
@@ -90,7 +103,7 @@ function advMat_Table:GetStored()
 	return self.stored
 end
 
--- indexes are 1 / 3 to catch advmat 2'ed props, removed index 2 support, it was too specialized.
+-- indexes are 1 2 3 to catch advmat 2'ed props.
 local alphaTypes = {
 	[1] = "$alphatest",
 	[2] = "$vertexalpha",
@@ -135,7 +148,6 @@ function advMat_Table:Set( ent, texture, data )
 
 			local matTable = {
 				["$basetexture"] = tempMat:GetName(),
-				["$basetexturetransform"] = "center .5 .5 scale " .. ( 1 / dataV.ScaleX ) .. " " .. ( 1 / dataV.ScaleY ) .. " rotate " .. dataV.ROffset .. " translate " .. dataV.OffsetX .. " " .. dataV.OffsetY,
 				["$vertexcolor"] = 1
 			}
 
@@ -156,11 +168,6 @@ function advMat_Table:Set( ent, texture, data )
 				matTable["$detail"] = advMat_Table.DetailTranslations[dataV.NoiseSetting]
 			end
 
-			if ( file.Exists( "materials/" .. texture .. "_normal.vtf", "GAME" ) ) then
-				matTable["$bumpmap"] = texture .. "_normal"
-				matTable["$bumptransform"] = "center .5 .5 scale " .. ( 1 / dataV.ScaleX ) .. " " .. ( 1 / dataV.ScaleY ) .. " rotate " .. dataV.NoiseROffset .. " translate " .. dataV.OffsetX .. " " .. dataV.OffsetY
-			end
-
 			local matrix = Matrix()
 			matrix:Scale( Vector( 1 / dataV.ScaleX, 1 / dataV.ScaleY, 1 ) )
 			matrix:Translate( Vector( dataV.OffsetX, dataV.OffsetY, 0 ) )
@@ -175,6 +182,14 @@ function advMat_Table:Set( ent, texture, data )
 			self.stored[uid]:SetTexture( "$basetexture", iTexture )
 			self.stored[uid]:SetMatrix( "$basetexturetransform", matrix )
 			self.stored[uid]:SetMatrix( "$detailtexturetransform", noiseMatrix )
+
+			local bumpTex = tempMat:GetTexture( "$bumpmap" )
+			if bumpTex and dataV.UseBump > 0 then
+				self.stored[uid]:SetTexture( "$bumpmap", bumpTex )
+				self.stored[uid]:SetMatrix( "$bumptransform", matrix )
+			else
+				self.stored[uid]:SetUndefined( "$bumpmap" )
+			end
 		end
 
 		ent.MaterialData = dataV
@@ -184,7 +199,7 @@ function advMat_Table:Set( ent, texture, data )
 end
 
 if CLIENT then
-	net.Receive( "Materialize", function()
+	net.Receive( "AdvMatMaterialize", function()
 		local ent = net.ReadEntity()
 		local texture = net.ReadString()
 		local data = net.ReadTable()
@@ -192,6 +207,12 @@ if CLIENT then
 		if IsValid( ent ) then
 			advMat_Table:Set( ent, texture, data )
 		end
+	end )
+
+	net.Receive( "AdvMatDematerialize", function()
+		local ent = net.ReadEntity()
+		if not IsValid( ent ) then return end
+		advMat_Table:ResetAdvMaterial( ent )
 	end )
 
 	local requestQueue = {}
@@ -223,13 +244,18 @@ if CLIENT then
 else
 	function advMat_Table:Sync( ent, ply )
 		local data = ent.MaterialData
-		if not data then return end
 
-		net.Start( "Materialize" )
-		net.WriteEntity( ent )
-		net.WriteString( data.texture )
-		net.WriteTable( data )
-		net.Send( ply )
+		if data then
+			net.Start( "AdvMatMaterialize" )
+			net.WriteEntity( ent )
+			net.WriteString( data.texture )
+			net.WriteTable( data )
+			net.Send( ply )
+		else
+			net.Start( "AdvMatDematerialize" )
+			net.WriteEntity( ent )
+			net.Send( ply )
+		end
 	end
 
 	local syncTable = {}
@@ -244,7 +270,7 @@ else
 		for ply, entTable in pairs( syncTable ) do
 			if IsValid( ply ) then
 				for i, ent in pairs( entTable ) do
-					if IsValid( ent ) and ent.MaterialData then
+					if IsValid( ent ) then
 						advMat_Table:Sync( ent, ply )
 						sendCount = sendCount + 1
 					end
@@ -275,7 +301,7 @@ else
 		end
 
 		for _, ent in ipairs( requestQueue ) do
-			if IsValid( ent ) and ent.MaterialData then
+			if IsValid( ent ) then
 				syncTable[ply] = syncTable[ply] or {}
 				table.insert( syncTable[ply], ent )
 
