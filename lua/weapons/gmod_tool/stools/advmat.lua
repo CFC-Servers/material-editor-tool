@@ -165,7 +165,8 @@ function TOOL:RightClick( trace )
 			end
 		end
 
-		local hasBump = isstring( tempMat:GetString( "$bumpmap" ) ) and not tempMat:GetTexture( "$bumpmap" ):IsErrorTexture()
+		local bumpTex = tempMat:GetString( "$bumpmap" )
+		local hasBump = isstring( bumpTex )
 
 		data = {
 			texture = matString,
@@ -287,13 +288,15 @@ function TOOL:Think()
 
 
 		local baseTex = iMat:GetTexture( "$basetexture" )
+		if not baseTex then return end
+
 		local baseTexName = baseTex:GetName()
 
 		if mat:GetString( "$basetexture" ) ~= baseTexName and baseTex then
 			mat:SetTexture( "$basetexture", baseTex )
 
 			local bumpTex = iMat:GetTexture( "$bumpmap" )
-			if usebump > 0 and not bumpTex:IsErrorTexture() then
+			if usebump > 0 and bumpTex and not bumpTex:IsErrorTexture() then
 				mat:SetTexture( "$bumpmap", bumpTex )
 			elseif mat:GetString( "$bumpmap" ) then
 				mat:SetUndefined( "$bumpmap" )

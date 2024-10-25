@@ -198,6 +198,8 @@ function advMat_Table:Set( ent, texture, data )
 	end
 end
 
+local requestQueueBatchSize = 50
+
 if CLIENT then
 	net.Receive( "AdvMatMaterialize", function()
 		local ent = net.ReadEntity()
@@ -234,7 +236,7 @@ if CLIENT then
 
 		table.insert( requestQueue, ent )
 
-		if #requestQueue >= 200 then
+		if #requestQueue >= requestQueueBatchSize then
 			sendRequestQueue()
 			return
 		end
@@ -260,6 +262,7 @@ else
 
 	local syncTable = {}
 	local sendCount = 0
+	local wait = 0
 
 	local function runSync()
 		if table.IsEmpty( syncTable ) then
@@ -267,15 +270,17 @@ else
 			return
 		end
 
+		if wait > CurTime() then return end
+
 		for ply, entTable in pairs( syncTable ) do
-			if IsValid( ply ) then
+			if IsValid( ply ) and not table.IsEmpty( entTable ) then
 				for i, ent in pairs( entTable ) do
 					if IsValid( ent ) then
 						advMat_Table:Sync( ent, ply )
 						sendCount = sendCount + 1
 					end
 
-					if sendCount >= 200 then
+					if sendCount >= requestQueueBatchSize then
 						sendCount = 0
 						return
 					end
@@ -295,7 +300,7 @@ else
 	net.Receive( "AdvMatSync", function( _, ply )
 		local requestQueue = {}
 
-		for _ = 1, 200 do
+		for _ = 1, requestQueueBatchSize do
 			if not net.ReadBit() then break end
 			table.insert( requestQueue, net.ReadEntity() )
 		end
@@ -309,6 +314,12 @@ else
 			end
 		end
 	end )
+
+	hook.Add( "LoadGModSave", "advmat_reborn_waitaftersaveload", function() -- even less chance of client 0 overload reliable buffer
+		wait = CurTime() + 1
+
+	end )
+
 end
 
 duplicator.RegisterEntityModifier( "MaterialData", function( _, entity, data )
