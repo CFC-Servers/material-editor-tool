@@ -268,7 +268,7 @@ if CLIENT then
 	end )
 else
 	local function writeDecimal( num )
-		local mult = math.floor( num * divisor )
+		local mult = math.floor( math.Round( num * divisor ) )
 		net.WriteInt( mult, bitSize )
 	end
 
