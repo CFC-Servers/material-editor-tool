@@ -201,14 +201,35 @@ end
 local requestQueueBatchSize = 50
 
 if CLIENT then
-	net.Receive( "AdvMatMaterialize", function()
-		local ent = net.ReadEntity()
-		local texture = net.ReadString()
-		local data = net.ReadTable()
+	local function readDecimal()
+		return net.ReadUInt( 10 ) / 100
+	end
 
-		if IsValid( ent ) then
-			advMat_Table:Set( ent, texture, data )
-		end
+	net.Receive( "AdvMatMaterialize", function( len )
+		local ent = net.ReadEntity()
+		if not IsValid( ent ) then return end
+
+		local texture = net.ReadString()
+		local data = {
+			texture = texture,
+			AlphaType = net.ReadUInt( 3 ),
+			NoiseOffsetX = readDecimal(),
+			NoiseOffsetY = readDecimal(),
+			NoiseROffset = readDecimal(),
+			NoiseScaleX = readDecimal(),
+			NoiseScaleY = readDecimal(),
+			NoiseSetting = net.ReadString(),
+			OffsetX = readDecimal(),
+			OffsetY = readDecimal(),
+			ROffset = readDecimal(),
+			ScaleX = readDecimal(),
+			ScaleY = readDecimal(),
+			StepOverride = net.ReadString(),
+			UseBump = net.ReadBool() and 1 or 0,
+			UseNoise = net.ReadBool() and 1 or 0,
+		}
+
+		advMat_Table:Set( ent, texture, data )
 	end )
 
 	net.Receive( "AdvMatDematerialize", function()
@@ -244,6 +265,11 @@ if CLIENT then
 		timer.Create( "AdvMatSyncTimer", 0.05, 1, sendRequestQueue )
 	end )
 else
+	local function writeDecimal( num )
+		local mult = math.floor( num * 100 )
+		net.WriteUInt( mult, 10 )
+	end
+
 	function advMat_Table:Sync( ent, ply )
 		local data = ent.MaterialData
 
@@ -251,7 +277,21 @@ else
 			net.Start( "AdvMatMaterialize" )
 			net.WriteEntity( ent )
 			net.WriteString( data.texture )
-			net.WriteTable( data )
+			net.WriteUInt( data.AlphaType, 3 )
+			writeDecimal( data.NoiseOffsetX )
+			writeDecimal( data.NoiseOffsetY )
+			writeDecimal( data.NoiseROffset )
+			writeDecimal( data.NoiseScaleX )
+			writeDecimal( data.NoiseScaleY )
+			net.WriteString( data.NoiseSetting )
+			writeDecimal( data.OffsetX )
+			writeDecimal( data.OffsetY )
+			writeDecimal( data.ROffset )
+			writeDecimal( data.ScaleX )
+			writeDecimal( data.ScaleY )
+			net.WriteString( data.StepOverride )
+			net.WriteBool( data.UseBump > 0 )
+			net.WriteBool( data.UseNoise > 0 )
 			net.Send( ply )
 		else
 			net.Start( "AdvMatDematerialize" )
