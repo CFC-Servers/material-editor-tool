@@ -202,10 +202,10 @@ local requestQueueBatchSize = 50
 
 if CLIENT then
 	local function readDecimal()
-		return net.ReadUInt( 10 ) / 100
+		return net.ReadUInt( 16 ) / 100
 	end
 
-	net.Receive( "AdvMatMaterialize", function( len )
+	net.Receive( "AdvMatMaterialize", function()
 		local ent = net.ReadEntity()
 		if not IsValid( ent ) then return end
 
@@ -267,7 +267,7 @@ if CLIENT then
 else
 	local function writeDecimal( num )
 		local mult = math.floor( num * 100 )
-		net.WriteUInt( mult, 10 )
+		net.WriteUInt( mult, 16 )
 	end
 
 	function advMat_Table:Sync( ent, ply )
