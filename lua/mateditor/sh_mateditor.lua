@@ -199,10 +199,12 @@ function advMat_Table:Set( ent, texture, data )
 end
 
 local requestQueueBatchSize = 50
+local bitSize = 17
+local divisor = 100
 
 if CLIENT then
 	local function readDecimal()
-		return net.ReadUInt( 16 ) / 100
+		return net.ReadInt( bitSize ) / divisor
 	end
 
 	net.Receive( "AdvMatMaterialize", function()
@@ -266,8 +268,8 @@ if CLIENT then
 	end )
 else
 	local function writeDecimal( num )
-		local mult = math.floor( num * 100 )
-		net.WriteUInt( mult, 16 )
+		local mult = math.floor( num * divisor )
+		net.WriteInt( mult, bitSize )
 	end
 
 	function advMat_Table:Sync( ent, ply )
