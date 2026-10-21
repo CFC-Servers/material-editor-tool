@@ -228,15 +228,15 @@ function TOOL:RightClick( trace )
 end
 
 if CLIENT then
-	net.Receive("AdvMatSyncSettings", function()
-		for i = 1, 1000 do
+	net.Receive( "AdvMatSyncSettings", function()
+		for _ = 1, 1000 do
 			RunConsoleCommand( net.ReadString(), net.ReadString() )
 
 			if net.BytesLeft() <= 0 then
 				break
 			end
 		end
-	end)
+	end )
 end
 
 function TOOL:Reload( trace )
