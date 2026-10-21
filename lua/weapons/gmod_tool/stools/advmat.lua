@@ -24,7 +24,9 @@ TOOL.PreviewMats = {}
 TOOL.Information = {
 	{ name = "left" },
 	{ name = "right" },
-	{ name = "reload" }
+	{ name = "reload" },
+	{ name = "left_shift" },
+	{ name = "right_shift" },
 }
 
 /*
@@ -43,11 +45,41 @@ function TOOL:LegalMaterialize( trace )
 	return true
 end
 
+local function isValidMaterial( matStr )
+	if not matStr then return end
+	if matStr[1] == "*" then return end -- **DISPLACEMENT**, **STUDIO**, etc
+	if matStr == "" then return end
+
+	return true
+end
 
 function TOOL:LeftClick( trace )
 	if not IsValid( trace.Entity ) then return false end
 	if not self:LegalMaterialize( trace ) then return false end
+
+	-- Shift mode: update only the texture, preserve all existing advmat modifiers
+	local shiftMode = self:GetOwner():KeyDown( IN_SPEED )
+	local existing = trace.Entity.MaterialData
+	if shiftMode and not existing then
+		if SERVER then
+			local owner = self:GetOwner()
+			local onlyOwner = RecipientFilter()
+			onlyOwner:AddPlayer( owner )
+			owner:EmitSound( "common/wpn_denyselect.wav", 75, 100, 1, CHAN_AUTO, 0, 0, onlyOwner )
+			owner:PrintMessage( HUD_PRINTTALK, "Shift + Left Click only works on props that already have an Advanced Material" )
+		end
+		return false
+	end
+
 	if CLIENT then return true end
+
+	if shiftMode then
+		local texture = string.Trim( self:GetClientInfo( "texture" ) ):lower()
+		if not isValidMaterial( texture ) then return false end
+
+		advMat_Table:Set( trace.Entity, texture, table.Copy( existing ) )
+		return true
+	end
 
 	local texture = self:GetClientInfo( "texture" )
 	local scalex = tonumber( self:GetClientInfo( "scalex" ) )
@@ -91,14 +123,6 @@ function TOOL:LeftClick( trace )
 	return true
 end
 
-local function isValidMaterial( matStr )
-	if not matStr then return end
-	if matStr[1] == "*" then return end -- **DISPLACEMENT**, **STUDIO**, etc
-	if matStr == "" then return end
-
-	return true
-end
-
 function TOOL:GetEntsMaterial( ent )
 	local entsOverrideMat = ent:GetMaterial()
 	if isValidMaterial( entsOverrideMat ) then return entsOverrideMat end
@@ -109,30 +133,53 @@ function TOOL:GetEntsMaterial( ent )
 	if isValidMaterial( primaryMat ) then return primaryMat end
 end
 
+-- Sets ply's advmat_<key> convars. Never ConCommand these; values can come from other players' materials.
+local function sendSettings( ply, settings )
+	net.Start( "AdvMatSyncSettings" )
+
+	for index, var in pairs( settings ) do
+		if isbool( var ) then
+			var = var and 1 or 0
+		end
+
+		net.WriteString( "advmat_" .. index:lower() )
+		net.WriteString( tostring( var ) )
+	end
+
+	net.Send( ply )
+end
+
+-- Returns the primary material string and, if the entity had advmat data, that data table.
+function TOOL:GetTraceMaterial( trace )
+	-- hit prop or w/e!
+	if IsValid( trace.Entity ) then
+		local matData = trace.Entity.MaterialData
+		-- it has an advmat!
+		if matData and isValidMaterial( matData.texture ) then
+			return matData.texture, matData
+		end
+		-- no advmat, just get the ent's material
+		return self:GetEntsMaterial( trace.Entity )
+	-- hit world!
+	elseif isValidMaterial( trace.HitTexture ) then
+		return trace.HitTexture
+	end
+end
+
 -- copy mats
 function TOOL:RightClick( trace )
 	if not self:LegalMaterialize( trace ) then return false end
 	if CLIENT then return true end
 
-	local matData = nil
-	local validAdvMat = nil
-	if IsValid( trace.Entity ) then
-		matData = trace.Entity.MaterialData
-		validAdvMat = matData and isValidMaterial( matData.texture )
+	-- Shift mode: copy only the primary texture, no other settings
+	if self:GetOwner():KeyDown( IN_SPEED ) then
+		local matString = self:GetTraceMaterial( trace )
+		if not isValidMaterial( matString ) then return false end
+		sendSettings( self:GetOwner(), { texture = matString } )
+		return true
 	end
 
-	local matString = ""
-
-	-- building a new material
-	if not validAdvMat then
-		if IsValid( trace.Entity ) then
-			matString = self:GetEntsMaterial( trace.Entity )
-		elseif isValidMaterial( trace.HitTexture ) then
-			matString = trace.HitTexture
-		end
-	else
-		matString = matData.texture
-	end
+	local matString, matData = self:GetTraceMaterial( trace )
 
 	if not isValidMaterial( matString ) then return false end -- displacement or smth
 
@@ -140,16 +187,7 @@ function TOOL:RightClick( trace )
 
 	-- copy existing advmat
 	if matData then
-		local untranslatedNoise = matData.NoiseSetting
 		data = matData
-
-		-- translate the raw texture into what the commands expect, eg 'metal', 'concrete'
-		for setting, translation in pairs( advMat_Table.DetailTranslations ) do
-			if translation == untranslatedNoise then
-				data.noisesetting = setting
-				break
-			end
-		end
 	-- build advmat data from scratch
 	elseif isValidMaterial( matString ) then
 		local tempMat = Material( matString )
@@ -184,18 +222,7 @@ function TOOL:RightClick( trace )
 		return false
 	end
 
-	net.Start( "AdvMatSyncSettings" )
-
-	for index, var in pairs( data ) do
-		if isbool( var ) then
-			var = var and 1 or 0
-		end
-
-		net.WriteString( "advmat_" .. index:lower() )
-		net.WriteString( tostring( var ) )
-	end
-
-	net.Send( self:GetOwner() )
+	sendSettings( self:GetOwner(), data )
 
 	return true
 end
@@ -532,6 +559,8 @@ if CLIENT then
 	language.Add( "tool.advmat.left", "Set material" )
 	language.Add( "tool.advmat.right", "Copy material" )
 	language.Add( "tool.advmat.reload", "Remove material" )
+	language.Add( "tool.advmat.left_shift", "[Shift] Set primary material only (keep modifiers)" )
+	language.Add( "tool.advmat.right_shift", "[Shift] Copy primary material only" )
 	language.Add( "tool.advmat.desc", "Use any material on any prop, with the ability to copy materials from the map." )
 
 	language.Add( "tool.advmat.texture", "Material to use" )
