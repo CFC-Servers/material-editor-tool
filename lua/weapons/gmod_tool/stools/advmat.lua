@@ -450,7 +450,7 @@ do
 
 		function baseTextureReset:DoClick()
 			for k, v in pairs( transformData ) do
-				LocalPlayer():ConCommand( "advmat_" .. k:lower() .. " " .. v )
+				RunConsoleCommand( "advmat_" .. k:lower(), v )
 			end
 		end
 
@@ -475,7 +475,7 @@ do
 
 		function noiseReset:DoClick()
 			for k, v in pairs( transformData ) do
-				LocalPlayer():ConCommand( "advmat_noise" .. k:lower() .. " " .. v )
+				RunConsoleCommand( "advmat_noise" .. k:lower(), v )
 			end
 		end
 
