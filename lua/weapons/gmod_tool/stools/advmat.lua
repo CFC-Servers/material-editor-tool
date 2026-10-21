@@ -184,18 +184,28 @@ function TOOL:RightClick( trace )
 		return false
 	end
 
-	local owner = self:GetOwner()
+	net.Start( "AdvMatSyncSettings" )
 
 	for index, var in pairs( data ) do
 		if isbool( var ) then
 			var = var and 1 or 0
 		end
 
-		local start = string.find( var, ";" )
-		owner:ConCommand( "advmat_" .. index:lower() .. " " .. ( start and string.sub( var, 0, start ) or var ) )
+		net.WriteString( "advmat_" .. index:lower() )
+		net.WriteString( tostring( var ) )
 	end
 
+	net.Send( self:GetOwner() )
+
 	return true
+end
+
+if CLIENT then
+	net.Receive("AdvMatSyncSettings", function()
+		while net.BytesLeft() > 0 do
+			RunConsoleCommand( net.ReadString(), net.ReadString() )
+		end
+	end)
 end
 
 function TOOL:Reload( trace )

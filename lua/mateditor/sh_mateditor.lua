@@ -1,7 +1,7 @@
 if SERVER then
 	util.AddNetworkString( "AdvMatMaterialize" )
 	util.AddNetworkString( "AdvMatDematerialize" )
-	util.AddNetworkString( "AdvMatInit" )
+	util.AddNetworkString( "AdvMatSyncSettings" )
 	util.AddNetworkString( "AdvMatSync" )
 end
 
@@ -21,7 +21,7 @@ advMat_Table.DetailTranslations = {
 	rock = "detail/rock_detail_01",
 }
 
--- cache of built "UID"s so mats with the same stuff don't build twice 
+-- cache of built "UID"s so mats with the same stuff don't build twice
 advMat_Table.stored = advMat_Table.stored or {}
 
 function advMat_Table:ResetAdvMaterial( ent )
