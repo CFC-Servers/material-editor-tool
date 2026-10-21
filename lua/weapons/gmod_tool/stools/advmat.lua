@@ -184,13 +184,32 @@ function TOOL:RightClick( trace )
 		return false
 	end
 
-	for index, var in pairs( data ) do
-		if isbool( var ) then continue end
+	net.Start( "AdvMatSyncSettings" )
 
-		self:GetOwner():ConCommand( "advmat_" .. index:lower() .. " " .. var )
+	for index, var in pairs( data ) do
+		if isbool( var ) then
+			var = var and 1 or 0
+		end
+
+		net.WriteString( "advmat_" .. index:lower() )
+		net.WriteString( tostring( var ) )
 	end
 
+	net.Send( self:GetOwner() )
+
 	return true
+end
+
+if CLIENT then
+	net.Receive("AdvMatSyncSettings", function()
+		for i = 1, 1000 do
+			RunConsoleCommand( net.ReadString(), net.ReadString() )
+
+			if net.BytesLeft() <= 0 then
+				break
+			end
+		end
+	end)
 end
 
 function TOOL:Reload( trace )
@@ -445,7 +464,7 @@ do
 
 		function baseTextureReset:DoClick()
 			for k, v in pairs( transformData ) do
-				LocalPlayer():ConCommand( "advmat_" .. k:lower() .. " " .. v )
+				RunConsoleCommand( "advmat_" .. k:lower(), v )
 			end
 		end
 
@@ -470,7 +489,7 @@ do
 
 		function noiseReset:DoClick()
 			for k, v in pairs( transformData ) do
-				LocalPlayer():ConCommand( "advmat_noise" .. k:lower() .. " " .. v )
+				RunConsoleCommand( "advmat_noise" .. k:lower(), v )
 			end
 		end
 
