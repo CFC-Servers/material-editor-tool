@@ -202,8 +202,12 @@ end
 
 if CLIENT then
 	net.Receive("AdvMatSyncSettings", function()
-		while net.BytesLeft() > 0 do
+		for i = 1, 1000 do
 			RunConsoleCommand( net.ReadString(), net.ReadString() )
+
+			if net.BytesLeft() <= 0 then
+				break
+			end
 		end
 	end)
 end
