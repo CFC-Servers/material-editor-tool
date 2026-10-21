@@ -311,11 +311,11 @@ function TOOL:Think()
 			local previewMatTable = {}
 
 			previewMatTable["$basetexture"] = texture
-			previewMatTable["$basetexturetransform"] = "center .5 .5 scale " .. ( 1 / noisescalex ) .. " " .. ( 1 / noisescaley ) .. " rotate " .. roffset .. " translate " .. noiseoffsetx .. " " .. noiseoffsety
 			previewMatTable["$vertexcolor"] = 1
 
-			if alphatype > 0 then
-				previewMatTable[alphaTypes[alphatype]] = 1
+			local alphaKey = alphaTypes[alphatype]
+			if alphaKey then
+				previewMatTable[alphaKey] = 1
 			end
 
 			mat = CreateMaterial( matName, shaderName, previewMatTable )
@@ -372,10 +372,6 @@ function TOOL:Think()
 			noiseMatrix:Rotate( Angle( 0, noiseroffset, 0 ) )
 
 			mat:SetMatrix( "$detailtexturetransform", noiseMatrix )
-
-		elseif currentDetail then
-			mat:SetUndefined( "$detail" )
-			mat:SetUndefined( "$detailtexturetransform" )
 		end
 	end
 end

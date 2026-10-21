@@ -37,6 +37,13 @@ function advMat_Table:ResetAdvMaterial( ent )
 	ent:SetMaterial( "" )
 end
 
+-- indexes are 1 2 3 to catch advmat 2'ed props.
+local alphaTypes = {
+	[1] = "$alphatest",
+	[2] = "$vertexalpha",
+	[3] = "$translucent"
+}
+
 function advMat_Table:ValidateAdvmatData( data )
 	local useNoise = data.UseNoise
 	if isbool( useNoise ) then
@@ -74,7 +81,7 @@ function advMat_Table:ValidateAdvmatData( data )
 		NoiseOffsetX = data.NoiseOffsetX or 0,
 		NoiseOffsetY = data.NoiseOffsetY or 0,
 		NoiseROffset = data.NoiseROffset or 0,
-		AlphaType = data.AlphaType or 0,
+		AlphaType = math.Clamp( math.floor( tonumber( data.AlphaType ) or 0 ), 0, #alphaTypes ),
 	}
 	return dataValid
 
@@ -102,13 +109,6 @@ end
 function advMat_Table:GetStored()
 	return self.stored
 end
-
--- indexes are 1 2 3 to catch advmat 2'ed props.
-local alphaTypes = {
-	[1] = "$alphatest",
-	[2] = "$vertexalpha",
-	[3] = "$translucent"
-}
 
 function advMat_Table:Set( ent, texture, data )
 	if not IsValid( ent ) then return end
@@ -155,13 +155,7 @@ function advMat_Table:Set( ent, texture, data )
 			if not iTexture then return end
 
 			if dataV.AlphaType > 0 then
-				matTable[alphaTypes[data.AlphaType]] = 1
-			end
-
-			for index, currData in pairs( dataV ) do
-				if ( index:sub( 1, 1 ) == "$" ) then
-					matTable[k] = currData
-				end
+				matTable[alphaTypes[dataV.AlphaType]] = 1
 			end
 
 			if dataV.UseNoise > 0 and advMat_Table.DetailTranslations[dataV.NoiseSetting] then
