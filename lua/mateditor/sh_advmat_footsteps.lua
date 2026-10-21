@@ -63,7 +63,7 @@ local CLIENT = CLIENT
 
 local entsMeta = FindMetaTable( "Entity" )
 local GetGroundEntity = entsMeta.GetGroundEntity
-local GetGlobalBool = GetGlobalBool
+local GetGlobal2Bool = GetGlobal2Bool
 
 
 local var = CreateClientConVar( "advmat_cl_overridefootsteps", "1", true, false, "Should player footsteps match the advanced material of the prop they're stepping on?" )
@@ -123,7 +123,7 @@ local infLoop
 
 hook.Add( "PlayerFootstep", "advmat_footsteps", function( ply, _, foot, _, volume, _ )
     if not enabledBool then return end
-    if not GetGlobalBool( "advmat_sv_overridefootsteps", false ) then return end
+    if not GetGlobal2Bool( "advmat_sv_overridefootsteps", false ) then return end
     if infLoop then return end
 
     local data = getGroundEntMatData( ply )
