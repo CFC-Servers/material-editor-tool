@@ -184,10 +184,15 @@ function TOOL:RightClick( trace )
 		return false
 	end
 
-	for index, var in pairs( data ) do
-		if isbool( var ) then continue end
+	local owner = self:GetOwner()
 
-		self:GetOwner():ConCommand( "advmat_" .. index:lower() .. " " .. var )
+	for index, var in pairs( data ) do
+		if isbool( var ) then
+			var = var and 1 or 0
+		end
+
+		local start = string.find( var, ";" )
+		owner:ConCommand( "advmat_" .. index:lower() .. " " .. ( start and string.sub( var, 0, start ) or var ) )
 	end
 
 	return true
